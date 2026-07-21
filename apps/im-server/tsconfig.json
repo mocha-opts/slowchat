@@ -1,0 +1,9 @@
+{
+  "extends": "@im/typescript-config/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "*.ts"]
+}

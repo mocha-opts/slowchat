@@ -1,0 +1,8 @@
+{
+  "extends": "@im/typescript-config/library.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

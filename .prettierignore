@@ -1,0 +1,11 @@
+.DS_Store
+.history
+AGENTS.md
+adr
+coverage
+dist
+node_modules
+plan.md
+pnpm-lock.yaml
+prd.md
+spec.md

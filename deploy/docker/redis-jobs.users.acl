@@ -1,0 +1,2 @@
+user default off
+user im_jobs on >jobs_dev_password ~im:jobs:* &im:jobs:* +@all

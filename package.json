@@ -1,0 +1,45 @@
+{
+  "name": "slowchat",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.13.0",
+  "engines": {
+    "node": ">=24.13.0 <25",
+    "pnpm": ">=11.13.0 <12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "db:migration:generate": "pnpm --filter @im/server db:migration:generate",
+    "db:migration:revert": "pnpm --filter @im/server db:migration:revert",
+    "db:migration:run": "pnpm --filter @im/server db:migration:run",
+    "db:migration:show": "pnpm --filter @im/server db:migration:show",
+    "dev": "node scripts/dev.mjs",
+    "dev:api": "pnpm --filter @im/server dev:api",
+    "dev:event-worker": "pnpm --filter @im/server dev:event-worker",
+    "dev:job-worker": "pnpm --filter @im/server dev:job-worker",
+    "dev:realtime": "pnpm --filter @im/server dev:realtime",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:down": "docker compose -f deploy/docker/compose.yml down",
+    "infra:logs": "docker compose -f deploy/docker/compose.yml logs -f",
+    "infra:up": "docker compose -f deploy/docker/compose.yml up -d --wait",
+    "lint": "turbo run lint",
+    "smoke": "node scripts/smoke.mjs",
+    "test": "turbo run test:unit test:integration",
+    "test:integration": "turbo run test:integration",
+    "test:unit": "turbo run test:unit",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@im/eslint-config": "workspace:*",
+    "@im/typescript-config": "workspace:*",
+    "@types/node": "24.13.3",
+    "eslint": "10.7.0",
+    "prettier": "3.9.5",
+    "turbo": "2.10.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0"
+  }
+}

@@ -1,0 +1,2 @@
+user default off
+user im_realtime on >realtime_dev_password ~im:realtime:* &im:realtime:* +@all
