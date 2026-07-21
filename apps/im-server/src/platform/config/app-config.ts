@@ -16,6 +16,25 @@ export interface AppConfig {
     readonly jobsPrefix: string;
   };
   readonly rabbitMqUrl: string;
+  readonly auth: {
+    readonly jwtIssuer: string;
+    readonly jwtAudience: string;
+    readonly jwtKeyId: string;
+    readonly jwtPrivateKeyPath?: string;
+    readonly jwtPublicKeyPath?: string;
+    readonly refreshTokenPepper: string;
+    readonly challengePepper: string;
+    readonly identifierPepper: string;
+    readonly maxDevices: number;
+    readonly challengeTtlSeconds: number;
+    readonly challengeMaxAttempts: number;
+    readonly challengeResendSeconds: number;
+    readonly loginIdentityLimit: number;
+    readonly loginIpLimit: number;
+    readonly loginWindowSeconds: number;
+    readonly exposeChallengeCode: boolean;
+    readonly allowedWsOrigins: readonly string[];
+  };
   readonly s3: {
     readonly endpoint: string;
     readonly region: string;

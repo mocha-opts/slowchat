@@ -36,7 +36,7 @@
 | 分别启动四进程 | `pnpm dev:api`、`pnpm dev:realtime`、`pnpm dev:event-worker`、`pnpm dev:job-worker` |
 | 启停基础设施 | `pnpm infra:up`、`pnpm infra:down` |
 | 静态检查 | `pnpm format:check`、`pnpm lint`、`pnpm typecheck` |
-| 测试 | `pnpm test`、`pnpm test:unit`、`pnpm test:integration` |
+| 测试 | `pnpm test`、`pnpm test:unit`、`pnpm test:contract`、`pnpm test:integration`、`pnpm test:e2e` |
 | 构建与冒烟 | `pnpm build`、`pnpm smoke` |
 | Migration | `pnpm db:migration:show`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm db:migration:generate` |
 

@@ -1,6 +1,6 @@
 # 中型 IM 平台 14 周实施计划
 
-> 状态：执行中（P1 已完成）  
+> 状态：执行中（P1、P2 已完成）  
 > 版本：v2.0  
 > 需求规格：[spec.md](./spec.md)  
 > 架构决策：[adr/](./adr/)  
@@ -63,7 +63,9 @@
 - Smoke 使用动态空闲端口，验证四进程启动、健康、SIGTERM 退出，以及 Redis Jobs 停止/恢复时仅 Job Worker Readiness `200 → 503 → 200`。
 - 阶段验证命令：`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm build`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`、`pnpm db:migration:show`、`pnpm db:migration:run`。
 
-### P2 — 第 2～3 周：认证、用户和设备
+### P2 — 第 2～3 周：认证、用户和设备（已完成，2026-07-21）
+
+状态：✅ 已通过阶段退出门槛，后续工作可进入 P3。
 
 依赖：P1  
 需求：`FR-AUTH-001`～`FR-AUTH-008`、`FR-USER-001`～`FR-USER-002`、`FR-PRIV-001`、`FR-CONTACT-001`～`FR-CONTACT-003`、`NFR-AUTH-001`～`NFR-AUTH-002`、`NFR-SEC-001`、`AC-AUTH-001`
@@ -82,6 +84,15 @@
 测试：Token Rotation 单测；Repository/事务集成测试；多设备、重放、封禁和撤销 E2E。
 
 退出门槛：多设备登录正常；移除设备立即禁止刷新并断开连接；Token 重放撤销 Family；封禁同时阻断 HTTP 和 WS；联系人及黑名单规则生效并同步到其他设备。
+
+完成记录：
+
+- 已交付邮箱/手机验证码注册、Argon2id 密码、RS256 Access Token、严格 Refresh Rotation/重放撤销、密码修改/找回、Session 与 Device 管理。
+- 已交付用户资料、隐私、搜索、匿名化注销、好友申请与双向关系、备注、删除、拉黑原子清理、举报和 Cursor 列表。
+- HTTP 与 WebSocket 共用 PostgreSQL 权威的 User/Session/Device 校验；Redis Emitter 只承担 `session.revoked`、联系人及拉黑的最佳努力在线通知，未越界引入 P3 Outbox。
+- 首份业务 Migration 覆盖 P2 全部表、部分唯一索引、状态约束和回滚；`synchronize` 保持关闭。
+- 已增加 Contract 与 E2E 测试入口；注册、登录、好友接受、Refresh 严格重放及账号枚举防护通过真实 PostgreSQL、Redis、MinIO 容器验证。
+- 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
 
 ### P3 — 第 4～5 周：单聊与消息核心
 

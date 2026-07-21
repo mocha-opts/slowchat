@@ -8,8 +8,8 @@ export function createDatabaseOptions(databaseUrl: string): DataSourceOptions {
     migrationsRun: false,
     migrationsTableName: "typeorm_migrations",
     migrationsTransactionMode: "all",
-    entities: [new URL("../../modules/**/*.entity.{js,ts}", import.meta.url).pathname],
-    migrations: [new URL("./migrations/*.{js,ts}", import.meta.url).pathname],
+    entities: [],
+    migrations: [],
     extra: {
       max: 20,
       connectionTimeoutMillis: 5_000,

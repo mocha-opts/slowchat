@@ -27,6 +27,8 @@
     "lint": "turbo run lint",
     "smoke": "node scripts/smoke.mjs",
     "test": "turbo run test:unit test:integration",
+    "test:contract": "turbo run test:contract",
+    "test:e2e": "turbo run test:e2e",
     "test:integration": "turbo run test:integration",
     "test:unit": "turbo run test:unit",
     "typecheck": "turbo run typecheck"

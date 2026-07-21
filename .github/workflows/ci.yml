@@ -26,8 +26,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:unit
+      - run: pnpm test:contract
       - run: pnpm build
       - run: pnpm test:integration
+      - run: pnpm test:e2e
       - run: docker compose -f deploy/docker/compose.yml config
       - run: pnpm smoke
       - if: always()

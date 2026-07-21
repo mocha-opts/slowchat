@@ -1,13 +1,30 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { generateKeyPairSync } from "node:crypto";
 import { createServer } from "node:net";
 import { resolve } from "node:path";
 
 export const rootDirectory = resolve(import.meta.dirname, "..");
 
 export function loadDevelopmentEnvironment() {
+  ensureDevelopmentAuthKeys();
   const environmentFile = existsSync(resolve(rootDirectory, ".env")) ? ".env" : ".env.example";
   process.loadEnvFile(resolve(rootDirectory, environmentFile));
+}
+
+export function ensureDevelopmentAuthKeys() {
+  const keyDirectory = resolve(rootDirectory, ".local/auth");
+  const privateKeyPath = resolve(keyDirectory, "private.pem");
+  const publicKeyPath = resolve(keyDirectory, "public.pem");
+  if (existsSync(privateKeyPath) && existsSync(publicKeyPath)) return;
+  mkdirSync(keyDirectory, { recursive: true, mode: 0o700 });
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+  writeFileSync(privateKeyPath, privateKey, { mode: 0o600 });
+  writeFileSync(publicKeyPath, publicKey, { mode: 0o644 });
 }
 
 export function spawnCommand(command, args, options = {}) {

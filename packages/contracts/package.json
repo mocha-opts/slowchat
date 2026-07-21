@@ -13,12 +13,22 @@
     "./errors": {
       "types": "./dist/errors/index.d.ts",
       "default": "./dist/errors/index.js"
+    },
+    "./api": {
+      "types": "./dist/api/index.d.ts",
+      "default": "./dist/api/index.js"
+    },
+    "./websocket": {
+      "types": "./dist/websocket/index.d.ts",
+      "default": "./dist/websocket/index.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint src",
     "test:integration": "node -e \"process.exit(0)\"",
+    "test:contract": "node -e \"process.exit(0)\"",
+    "test:e2e": "node -e \"process.exit(0)\"",
     "test:unit": "node -e \"process.exit(0)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

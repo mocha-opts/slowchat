@@ -8,6 +8,7 @@ import {
 } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { PinoLogger } from "nestjs-pino";
+import { QueryFailedError } from "typeorm";
 
 import { RequestContextService } from "../../platform/request-context/request-context.service.js";
 import { AppError } from "./app-error.js";
@@ -51,6 +52,26 @@ export class ApiExceptionFilter implements ExceptionFilter {
   } {
     if (exception instanceof AppError) {
       return exception;
+    }
+    if (exception instanceof QueryFailedError) {
+      const database = exception.driverError as { code?: string; constraint?: string };
+      if (database.code === "23505") {
+        const code: ErrorCode =
+          database.constraint === "users_username_active_uq"
+            ? "USERNAME_TAKEN"
+            : database.constraint === "user_credentials_email_uq" ||
+                database.constraint === "user_credentials_phone_uq"
+              ? "IDENTIFIER_ALREADY_REGISTERED"
+              : database.constraint === "friend_requests_pending_pair_uq"
+                ? "FRIEND_REQUEST_CONFLICT"
+                : "CONFLICT";
+        return {
+          code,
+          details: {},
+          message: "The requested state conflicts with existing data",
+          statusCode: 409,
+        };
+      }
     }
     if (exception instanceof HttpException) {
       const statusCode = exception.getStatus();

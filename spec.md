@@ -81,14 +81,17 @@
 
 ### 3.1 认证、账号与设备
 
-- `FR-AUTH-001` **MVP**：支持邮箱或手机号注册、密码登录、Access Token 和 Refresh Token。
-- `FR-AUTH-002` **MVP**：Access Token 使用非对称签名 JWT，包含 `userId`、`sessionId`、`deviceId`，可用于 HTTP 和 WebSocket 鉴权。
+- `FR-AUTH-001` **MVP**：支持邮箱或手机号注册、密码登录、Access Token 和 Refresh Token；注册前必须完成 6 位验证码校验，验证码有效 10 分钟、最多尝试 5 次且 60 秒后才可重发。
+- `FR-AUTH-002` **MVP**：Access Token 使用 RS256 JWT，固定包含 `sub/userId`、`sessionId`、`deviceId`、`jti`、`iss`、`aud` 和 `kid`，可用于 HTTP 和 WebSocket 鉴权。
 - `FR-AUTH-003` **MVP**：Refresh Token 使用高熵随机值，服务端仅保存哈希，并与 Session、Device、Token Family 绑定。
 - `FR-AUTH-004` **MVP**：刷新时轮换 Refresh Token；检测已使用 Token 重放时撤销整个 Token Family。
 - `FR-AUTH-005` **MVP**：支持查看会话和设备、移除指定设备、单设备登出及全设备登出；被撤销设备不能继续刷新并收到 `session.revoked`。
 - `FR-AUTH-006` **MVP**：支持修改和找回密码；修改密码可选择撤销其他设备 Session。
 - `FR-AUTH-007` **MVP**：用户状态为 `ACTIVE`、`FROZEN`、`DISABLED` 或 `DELETED`；封禁后 HTTP 和 WebSocket 均失效。
 - `FR-AUTH-008` **MVP**：登录失败限流并记录可疑登录；验证码登录和 MFA 为预留能力，管理后台 MFA 属上线安全要求。
+- `INV-AUTH-001`：每个受保护 HTTP 请求及 WebSocket 握手均以 PostgreSQL 中 User、Session、Device 状态为最终依据；Redis 撤销标记和在线事件只用于加速或通知。
+- `INV-AUTH-002`：Refresh Token 格式为 `tokenId.secret`，服务端仅保存带 Pepper 的 HMAC-SHA256；轮换必须在行锁事务内完成，已使用 Token 的任何重放都撤销整个 Family。
+- `INV-AUTH-003`：用户注销必须验证密码并匿名化为不可冲突墓碑，清除凭证和资料、撤销 Session/Device、删除好友/申请/Block，同时保留 User UUID 和必要治理引用；原邮箱或手机号可重新注册。
 
 ### 3.2 用户、隐私与联系人
 
@@ -178,21 +181,28 @@
 核心路由：
 
 ```text
+POST   /auth/registration-challenges
 POST   /auth/register              POST   /auth/login
 POST   /auth/refresh               POST   /auth/logout
 POST   /auth/logout-all            GET    /auth/sessions
 DELETE /auth/sessions/:sessionId
+POST   /auth/password/change
+POST   /auth/password-reset/challenges
+POST   /auth/password-reset/confirm
 
 GET    /users/me                   PATCH  /users/me
+DELETE /users/me
 GET    /users/:userId              GET    /users/search
 GET    /devices                    DELETE /devices/:deviceId
 GET    /privacy-settings           PATCH  /privacy-settings
 
 POST   /friend-requests            GET    /friend-requests
 POST   /friend-requests/:id/accept POST   /friend-requests/:id/reject
-GET    /contacts                   DELETE /contacts/:userId
+GET    /contacts                   PATCH  /contacts/:userId
+DELETE /contacts/:userId
 POST   /blocks/:userId             DELETE /blocks/:userId
 GET    /blocks
+POST   /reports
 
 POST   /conversations/direct       POST   /conversations/groups
 GET    /conversations              GET    /conversations/:id

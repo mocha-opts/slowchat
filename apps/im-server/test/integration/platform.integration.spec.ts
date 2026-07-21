@@ -15,6 +15,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "../../src/platform/config/app-config.js";
 import { createDatabaseOptions } from "../../src/platform/database/database-options.js";
+import { CreateAuthUsersContacts1784563200000 } from "../../src/platform/database/migrations/202607210001-create-auth-users-contacts.js";
 import { RabbitMqService } from "../../src/platform/rabbitmq/rabbitmq.service.js";
 import { ManagedRedis } from "../../src/platform/redis/managed-redis.js";
 import { S3ObjectStorageService } from "../../src/platform/storage/s3-object-storage.service.js";
@@ -89,6 +90,54 @@ describe("P1 platform integrations", () => {
       { name: null },
     ]);
     await dataSource.destroy();
+  });
+
+  it("runs and reverts the P2 schema with identity and pending-pair constraints", async () => {
+    const databaseUrl = `postgresql://im:secret@${postgres.getHost()}:${postgres.getMappedPort(5432)}/im`;
+    const dataSource = new DataSource({
+      ...createDatabaseOptions(databaseUrl),
+      entities: [],
+      migrations: [CreateAuthUsersContacts1784563200000],
+    });
+    await dataSource.initialize();
+    try {
+      await dataSource.runMigrations();
+      expect(await dataSource.query("SELECT to_regclass('auth_refresh_tokens') AS name")).toEqual([
+        { name: "auth_refresh_tokens" },
+      ]);
+      const alice = "019b0000-0000-7000-8000-000000000001";
+      const bob = "019b0000-0000-7000-8000-000000000002";
+      await dataSource.query(
+        "INSERT INTO users(id, username, username_normalized, nickname) VALUES ($1, 'alice', 'alice', 'Alice'), ($2, 'bob', 'bob', 'Bob')",
+        [alice, bob],
+      );
+      await dataSource.query(
+        "INSERT INTO user_credentials(user_id, password_hash, email_normalized, identity_verified_at, password_changed_at) VALUES ($1, 'hash', 'alice@example.com', now(), now())",
+        [alice],
+      );
+      await expect(
+        dataSource.query(
+          "INSERT INTO user_credentials(user_id, password_hash, email_normalized, identity_verified_at, password_changed_at) VALUES ($1, 'hash', 'alice@example.com', now(), now())",
+          [bob],
+        ),
+      ).rejects.toThrow();
+      await dataSource.query(
+        "INSERT INTO friend_requests(id, requester_id, recipient_id, pair_low, pair_high) VALUES ($1, $2, $3, $2, $3)",
+        ["019b0000-0000-7000-8000-000000000003", alice, bob],
+      );
+      await expect(
+        dataSource.query(
+          "INSERT INTO friend_requests(id, requester_id, recipient_id, pair_low, pair_high) VALUES ($1, $3, $2, $2, $3)",
+          ["019b0000-0000-7000-8000-000000000004", alice, bob],
+        ),
+      ).rejects.toThrow();
+      await dataSource.undoLastMigration();
+      expect(await dataSource.query("SELECT to_regclass('users') AS name")).toEqual([
+        { name: null },
+      ]);
+    } finally {
+      if (dataSource.isInitialized) await dataSource.destroy();
+    }
   });
 
   it("keeps Realtime and Jobs Redis connections isolated", async () => {
@@ -243,6 +292,23 @@ function createConfig(overrides: { rabbitMqUrl?: string; s3Endpoint?: string } =
       jobsPrefix: "im:jobs:",
     },
     rabbitMqUrl: overrides.rabbitMqUrl ?? "amqp://unused",
+    auth: {
+      jwtIssuer: "slowchat-test",
+      jwtAudience: "slowchat-test-clients",
+      jwtKeyId: "test-rs256",
+      refreshTokenPepper: "test-refresh-token-pepper-32-bytes-minimum",
+      challengePepper: "test-challenge-pepper-32-bytes-minimum-value",
+      identifierPepper: "test-identifier-pepper-32-bytes-minimum",
+      maxDevices: 5,
+      challengeTtlSeconds: 600,
+      challengeMaxAttempts: 5,
+      challengeResendSeconds: 60,
+      loginIdentityLimit: 5,
+      loginIpLimit: 20,
+      loginWindowSeconds: 900,
+      exposeChallengeCode: true,
+      allowedWsOrigins: ["http://localhost:3000"],
+    },
     s3: {
       endpoint: overrides.s3Endpoint ?? "http://unused",
       region: "us-east-1",

@@ -10,6 +10,7 @@ import { createDatabaseOptions } from "./database-options.js";
       inject: [APP_CONFIG],
       useFactory: (config: AppConfig) => ({
         ...createDatabaseOptions(config.databaseUrl),
+        autoLoadEntities: true,
         retryAttempts: 5,
         retryDelay: 1_000,
       }),
