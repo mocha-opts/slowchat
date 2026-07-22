@@ -1,0 +1,5 @@
+{
+  "extends": "@im/typescript-config/library.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "src", "lib": ["ES2023", "DOM"] },
+  "include": ["src/**/*.ts"]
+}

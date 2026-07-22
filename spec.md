@@ -330,6 +330,17 @@ interface MessageAccepted {
 
 `POST /api/v1/sync` 接受 `deviceId`、`userSyncCursor`、各会话 `lastSeq` 和不超过服务端上限的 `limit`，返回下一用户游标、`hasMore`、同步事件、缺失消息范围与服务器时间。客户端必须先顺序落地事件，再原子更新本地游标。
 
+P4 已实现的同步接口语义：
+
+- `GET /api/v1/sync/events` 使用 `deviceId + after + limit`，`after` 为排他游标；事件按用户过滤并按 `user_sync_events.id` 正序返回。
+- `GET /api/v1/sync/snapshot` 使用 `deviceId` 返回当前用户、设备、联系人、黑名单、会话摘要和最新用户游标；快照不修改消息、Outbox 或投影事实。
+- `GET /api/v1/conversations/:conversationId/messages/range` 使用排他的 `afterSeq`、`beforeSeq` 和 `limit`，只允许活动成员读取，消息按 `seq` 正序返回。
+- 同步游标超过 90 天保留窗口时返回 `SYNC_CURSOR_EXPIRED`、HTTP 410 和 `details.fullSyncRequired = true`；客户端必须先获取快照再继续增量同步。
+- 每台设备的同步游标独立保存；设备不属于当前用户、已撤销或已删除时返回 `SYNC_DEVICE_FORBIDDEN`。
+- `message.created.v1` 事件只携带消息 Payload 和 `conversationId + seq` 索引，不复制消息永久事实；客户端发现事件缺口时使用 Message Range 补齐。
+
+P4 SDK 约定：`@im/sdk-core` 提供可注入 Storage、REST/Socket Transport、Refresh Token 串行刷新、`eventId` 去重和游标顺序应用；`@im/sdk-web` 使用 IndexedDB 与 BroadcastChannel 协调多标签页。核心 SDK 不依赖 NestJS、TypeORM 或 Node-only 基础设施。
+
 ### 4.4 Contracts 和 SDK
 
 协议统一由无框架依赖的 `@im/contracts` 发布，并通过 `/api`、`/websocket`、`/events`、`/messages`、`/errors` 子路径导出。Contracts 仅包含类型、Schema、Envelope、错误码、枚举、版本及序列化规则，不得依赖 NestJS、TypeORM、Redis、RabbitMQ、BullMQ 或对象存储 SDK。

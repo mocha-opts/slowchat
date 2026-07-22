@@ -1,0 +1,30 @@
+{
+  "name": "@im/sdk-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint src",
+    "test:integration": "node -e \"process.exit(0)\"",
+    "test:contract": "node -e \"process.exit(0)\"",
+    "test:e2e": "node -e \"process.exit(0)\"",
+    "test:unit": "node -e \"process.exit(0)\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@im/sdk-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@im/typescript-config": "workspace:*",
+    "typescript": "6.0.3"
+  }
+}

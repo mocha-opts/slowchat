@@ -142,6 +142,15 @@
 
 退出门槛：完全丢弃实时通知后仍可恢复；任一设备已读后其他设备一致；90 天游标过期可用快照重建。
 
+完成记录：
+
+- 已交付 `user_sync_events`、`device_sync_states` 及可回滚 P4 Migration；用户游标使用 PostgreSQL `bigint` 单调 ID，设备游标按 `(user_id, device_id)` 独立保存。
+- 已交付 Event Worker Sync Projection Consumer：从 P3 Outbox 事件幂等生成用户事件，使用独立 RabbitMQ Queue、Consumer Inbox 和 90 天过期时间。
+- 已交付 `/sync` 增量事件、快照、消息范围 API；同步查询严格校验 Device 归属，游标过期返回 `SYNC_CURSOR_EXPIRED` 和 `fullSyncRequired`。
+- 已交付 `@im/sdk-core` 的 Token 刷新锁、事件去重、游标持久化、REST/Socket 抽象和文本发送；`@im/sdk-web` 提供 IndexedDB 与 BroadcastChannel 适配。
+- 已补充中文边界注释和 SDK TSDoc；未引入群聊、媒体、Bot 或高级消息能力。
+- 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm db:migration:run`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
+
 ### P5 — 第 8～9 周：群聊
 
 依赖：P3、P4  

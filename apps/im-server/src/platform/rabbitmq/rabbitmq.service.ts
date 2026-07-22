@@ -18,6 +18,8 @@ export const RABBIT_TOPOLOGY = {
   deadLetterExchange: "im.dead-letter",
   realtimeQueue: "im.realtime-dispatch.q",
   realtimeDeadLetterQueue: "im.realtime-dispatch.dlq",
+  syncQueue: "im.sync-projection.q",
+  syncDeadLetterQueue: "im.sync-projection.dlq",
 } as const;
 
 type ReturnedMessage = ConsumeMessage & {
@@ -35,7 +37,9 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
   private publisher: ConfirmChannel | undefined;
   private consumer: Channel | undefined;
   private consumerTag: string | undefined;
+  private syncConsumerTag: string | undefined;
   private realtimeHandler: ((message: ConsumeMessage) => Promise<void>) | undefined;
+  private syncHandler: ((message: ConsumeMessage) => Promise<void>) | undefined;
   private topologyReady = false;
   private shuttingDown = false;
   private reconnectTimer: NodeJS.Timeout | undefined;
@@ -61,7 +65,8 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
       this.connection &&
       this.publisher &&
       this.topologyReady &&
-      (!this.realtimeHandler || (this.consumer && this.consumerTag)),
+      (!this.realtimeHandler || (this.consumer && this.consumerTag)) &&
+      (!this.syncHandler || (this.consumer && this.syncConsumerTag)),
     );
   }
 
@@ -119,6 +124,12 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     if (this.consumer && !this.consumerTag) await this.startRealtimeConsumer();
   }
 
+  /** Sync Projection 与 Realtime Dispatch 共用连接，但拥有独立队列和 Inbox。 */
+  async consumeSync(handler: (message: ConsumeMessage) => Promise<void>): Promise<void> {
+    this.syncHandler = handler;
+    if (this.consumer && !this.syncConsumerTag) await this.startSyncConsumer();
+  }
+
   async onApplicationShutdown(): Promise<void> {
     this.shuttingDown = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
@@ -126,9 +137,13 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     if (consumer && this.consumerTag) {
       await consumer.cancel(this.consumerTag).catch(() => undefined);
     }
+    if (consumer && this.syncConsumerTag) {
+      await consumer.cancel(this.syncConsumerTag).catch(() => undefined);
+    }
     const publisher = this.publisher;
     const connection = this.connection;
     this.consumerTag = undefined;
+    this.syncConsumerTag = undefined;
     this.consumer = undefined;
     this.publisher = undefined;
     this.connection = undefined;
@@ -149,6 +164,7 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     await consumer.prefetch(this.config.messaging.rabbitMqPrefetch);
     this.topologyReady = true;
     if (this.realtimeHandler) await this.startRealtimeConsumer();
+    if (this.syncHandler) await this.startSyncConsumer();
 
     connection.on("error", (error) => {
       this.logger.error({ err: error }, "RabbitMQ connection error");
@@ -191,6 +207,20 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
       RABBIT_TOPOLOGY.deadLetterExchange,
       "realtime.#",
     );
+    await channel.assertQueue(RABBIT_TOPOLOGY.syncQueue, {
+      durable: true,
+      arguments: { "x-queue-type": "quorum" },
+    });
+    await channel.bindQueue(RABBIT_TOPOLOGY.syncQueue, RABBIT_TOPOLOGY.domainExchange, "#");
+    await channel.assertQueue(RABBIT_TOPOLOGY.syncDeadLetterQueue, {
+      durable: true,
+      arguments: { "x-queue-type": "quorum" },
+    });
+    await channel.bindQueue(
+      RABBIT_TOPOLOGY.syncDeadLetterQueue,
+      RABBIT_TOPOLOGY.deadLetterExchange,
+      "sync.#",
+    );
     await channel.waitForConfirms();
   }
 
@@ -209,10 +239,26 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     this.consumerTag = result.consumerTag;
   }
 
+  private async startSyncConsumer(): Promise<void> {
+    const channel = this.consumer;
+    const handler = this.syncHandler;
+    if (!channel || !handler || this.syncConsumerTag) return;
+    const result = await channel.consume(
+      RABBIT_TOPOLOGY.syncQueue,
+      (message) => {
+        if (!message) return;
+        void this.handleDelivery(channel, message, handler, "sync");
+      },
+      { noAck: false },
+    );
+    this.syncConsumerTag = result.consumerTag;
+  }
+
   private async handleDelivery(
     channel: Channel,
     message: ConsumeMessage,
     handler: (message: ConsumeMessage) => Promise<void>,
+    routePrefix = "realtime",
   ): Promise<void> {
     try {
       await handler(message);
@@ -224,7 +270,7 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
         if (permanent || attempt >= this.config.messaging.rabbitMqRetryDelaysMs.length) {
           await this.publish(
             RABBIT_TOPOLOGY.deadLetterExchange,
-            `realtime.${message.fields.routingKey}`,
+            `${routePrefix}.${message.fields.routingKey}`,
             message.content,
             {
               ...messageIdentifiers(message),
@@ -238,7 +284,7 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
         } else {
           await this.publish(
             RABBIT_TOPOLOGY.retryExchange,
-            `realtime.${attempt}.${message.fields.routingKey}`,
+            `${routePrefix}.${attempt}.${message.fields.routingKey}`,
             message.content,
             {
               ...messageIdentifiers(message),
@@ -259,6 +305,7 @@ export class RabbitMqService implements OnModuleInit, OnApplicationShutdown {
     this.publisher = undefined;
     this.consumer = undefined;
     this.consumerTag = undefined;
+    this.syncConsumerTag = undefined;
     this.topologyReady = false;
     if (!this.shuttingDown) this.scheduleReconnect();
   }

@@ -16,6 +16,8 @@ import { RedisModule } from "../platform/redis/redis.module.js";
 import { RequestContextModule } from "../platform/request-context/request-context.module.js";
 import { RealtimePublisherModule } from "../platform/realtime/realtime-publisher.module.js";
 import { StorageModule } from "../platform/storage/storage.module.js";
+import { SyncHttpModule } from "../modules/sync/sync-http.module.js";
+import { SyncPersistenceModule } from "../modules/sync/persistence/sync-persistence.module.js";
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { StorageModule } from "../platform/storage/storage.module.js";
     ContactsModule,
     ConversationsHttpModule,
     MessagesHttpModule,
+    SyncPersistenceModule,
+    SyncHttpModule,
   ],
 })
 export class ApiAppModule {}

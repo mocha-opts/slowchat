@@ -14,6 +14,9 @@ import {
   conversationSchema,
   friendRequestSchema,
   messageHistoryResponseSchema,
+  messageRangeSchema,
+  snapshotSchema,
+  syncResponseSchema,
   tokenResponseSchema,
   type TokenResponse,
 } from "@im/contracts/api";
@@ -32,6 +35,7 @@ import { RealtimeAppModule } from "../../src/compositions/realtime-app.module.js
 import { createDatabaseOptions } from "../../src/platform/database/database-options.js";
 import { CreateAuthUsersContacts1784563200000 } from "../../src/platform/database/migrations/202607210001-create-auth-users-contacts.js";
 import { CreateConversationsMessagesOutbox1784649600000 } from "../../src/platform/database/migrations/202607220001-create-conversations-messages-outbox.js";
+import { CreateSyncProjection1784736000000 } from "../../src/platform/database/migrations/202607230001-create-sync-projection.js";
 import { RabbitMqService } from "../../src/platform/rabbitmq/rabbitmq.service.js";
 import type { ManagedRedis } from "../../src/platform/redis/managed-redis.js";
 import { REDIS_REALTIME } from "../../src/platform/redis/redis.tokens.js";
@@ -79,6 +83,7 @@ describe("P3 direct messaging E2E", () => {
       migrations: [
         CreateAuthUsersContacts1784563200000,
         CreateConversationsMessagesOutbox1784649600000,
+        CreateSyncProjection1784736000000,
       ],
     });
     await migrationDataSource.initialize();
@@ -108,6 +113,7 @@ describe("P3 direct messaging E2E", () => {
     if (realtime) await realtime.close();
     if (api) await api.close();
     if (migrationDataSource?.isInitialized) {
+      await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
       await migrationDataSource.destroy();
@@ -177,6 +183,55 @@ describe("P3 direct messaging E2E", () => {
       return rows[0]?.status === "PROCESSED";
     });
     expect(wsServerEventSchema.parse(await firstCreated).eventId).toMatch(/^[0-9a-f-]{36}$/);
+
+    await waitUntil(async () => {
+      const rows = await migrationDataSource.query<Array<{ count: string }>>(
+        "SELECT count(*)::text AS count FROM user_sync_events WHERE user_id = $1",
+        [alice.user.id],
+      );
+      return Number(rows[0]?.count ?? 0) > 0;
+    });
+    const sync = syncResponseSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/sync/events?deviceId=${alice.device.id}&after=0&limit=50`)
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(sync.events.some((event) => event.eventType === "message.created.v1")).toBe(true);
+    const snapshot = snapshotSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/sync/snapshot?deviceId=${alice.device.id}`)
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(snapshot.userSyncCursor).toBeGreaterThanOrEqual(sync.userSyncCursor);
+    await migrationDataSource.query(
+      `INSERT INTO user_sync_events(user_id, event_id, event_type, event_version, payload)
+       VALUES ($1, $2, 'conversation.updated.v1', 1, '{}')`,
+      [alice.user.id, uuidv7()],
+    );
+    await migrationDataSource.query(
+      "UPDATE user_sync_events SET expires_at = now() - interval '1 minute' WHERE user_id = $1 AND id < $2",
+      [alice.user.id, sync.userSyncCursor],
+    );
+    const expired = await request(httpServer())
+      .get(`/api/v1/sync/events?deviceId=${alice.device.id}&after=1&limit=50`)
+      .set("Authorization", `Bearer ${alice.accessToken}`)
+      .expect(410);
+    expect(apiErrorEnvelopeSchema.parse(expired.body).code).toBe("SYNC_CURSOR_EXPIRED");
+    const range = messageRangeSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/conversations/${conversation.id}/messages/range?afterSeq=0&limit=50`)
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(range.messages.map((message) => message.seq)).toContain(first.seq);
 
     const duplicateResponse = await request(httpServer())
       .post(`/api/v1/conversations/${conversation.id}/messages`)

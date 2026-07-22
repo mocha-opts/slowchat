@@ -9,5 +9,6 @@ import { ContactService } from "./services/contact.service.js";
   imports: [AuthValidationModule, ContactInteractionPolicyModule],
   controllers: [ContactsController],
   providers: [ContactService],
+  exports: [ContactService],
 })
 export class ContactsModule {}

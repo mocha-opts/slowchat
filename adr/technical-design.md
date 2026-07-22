@@ -193,6 +193,14 @@ ON user_sync_events (user_id, id);
 
 每个 Device 在 `device_sync_states` 中保存已确认游标。服务端按 `user_id + id` 增量返回事件，并通过会话 `lastSeq` 计算缺失 Message Range。
 
+P4 实现细节：
+
+- `user_sync_events.id` 是用户级单调游标，`(user_id,event_id)` 唯一约束是投影幂等最终防线；`device_sync_states` 使用 `(user_id,device_id)` 主键隔离设备进度。
+- Sync Projection 使用独立 `sync-projection.v1` Consumer Inbox 和 `im.sync-projection.q` Quorum Queue。它只追加同步索引，不在投影事务中修改 Message 或 Conversation。
+- 同步事件默认写入 90 天后的 `expires_at`；读取时同时执行用户过滤和保留窗口过滤。游标存在缺口时返回 `SYNC_CURSOR_EXPIRED`，不返回部分结果。
+- Snapshot 使用 PostgreSQL 一致性读取组合用户、设备、联系人、黑名单、会话摘要和最新游标；客户端将快照落地后从返回游标继续增量同步。
+- P4 的 SDK 在本地按 `eventId` 去重，先应用事件再提交游标；事件游标不连续时暂停顺序应用并重新执行 Sync。刷新锁保证同一 Refresh Token 不被多个请求并发消费。
+
 ### 4.3 事件与应用顺序
 
 同步事件覆盖消息创建/更新/撤回、回执、会话创建/更新/移除、成员/群/联系人变化、设备撤销和媒体就绪。SDK 必须：

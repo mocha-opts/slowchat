@@ -11,6 +11,8 @@ import { PlatformLoggerModule } from "../platform/logger/platform-logger.module.
 import { RabbitMqModule } from "../platform/rabbitmq/rabbitmq.module.js";
 import { RedisModule } from "../platform/redis/redis.module.js";
 import { RequestContextModule } from "../platform/request-context/request-context.module.js";
+import { SyncPersistenceModule } from "../modules/sync/persistence/sync-persistence.module.js";
+import { SyncProjectionModule } from "../modules/sync/sync-projection.module.js";
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { RequestContextModule } from "../platform/request-context/request-contex
     OutboxRelayModule,
     RealtimeDispatchModule,
     HealthModule,
+    SyncPersistenceModule,
+    SyncProjectionModule,
   ],
 })
 export class EventWorkerAppModule {}

@@ -29,6 +29,10 @@
     "./events": {
       "types": "./dist/events/index.d.ts",
       "default": "./dist/events/index.js"
+    },
+    "./sync": {
+      "types": "./dist/api/sync.d.ts",
+      "default": "./dist/api/sync.js"
     }
   },
   "scripts": {
