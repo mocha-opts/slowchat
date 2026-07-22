@@ -174,19 +174,19 @@
 - 已交付 `Groups` 模块、`group_profiles`、`group_join_requests`、`group_invites` 可回滚 Migration。
 - 已交付 OWNER/ADMIN/MEMBER 权限、邀请/申请审批、退群、移除、转让群主、解散、全员/成员禁言和成员 Cursor 分页。
 - 群生命周期变化使用与普通消息共享的 `conversationId + seq` SYSTEM 消息；P5 仅开放 `DIRECT/GROUP + TEXT/SYSTEM`，群广播不写逐成员消息 Fan-out 或永久 Receipt。
-- 已补充群聊 Contracts、权限/状态集成测试和群生命周期 E2E；P6 媒体、P7 高级消息与 P9 治理仍未提前实现。
+- 已补充群聊 Contracts、权限/状态集成测试和群生命周期 E2E；P7 高级消息与 P9 治理仍未提前实现。
 - 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm db:migration:run`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
 
 ### P6 — 第 10 周：多模态和媒体
 
-依赖：P1、P3  
+依赖：P1、P3、P5
 需求：`FR-MEDIA-001`～`FR-MEDIA-005`、`NFR-SEC-004`、`AC-MEDIA-001`
 
 任务：
 
 - 建立上传会话、附件和衍生文件模型及状态机。
 - 实现 Presigned Upload、Complete HEAD 校验、访问控制和短期下载 URL。
-- 实现图片/文件 MVP，接入音频元数据、视频封面/转码等可选 Processor。
+- 实现 `IMAGE`/`FILE` MVP；音频元数据、视频封面/转码等高级 Processor 延后。
 - 实现病毒扫描、幂等媒体 Job、临时上传清理和 `media.ready` 事件。
 
 交付物：Media 模块、Storage Adapter、Media Job Worker、媒体 Contracts。
@@ -194,6 +194,13 @@
 测试：状态机单测；MinIO/BullMQ 集成测试；重复 Complete、重复 Job、越权下载和无效文件 E2E。
 
 退出门槛：文件字节不经过 API；未 Ready 附件不可发送；重复处理不重复产物；越权用户无法取得下载 URL。
+
+状态：✅ 已实现并通过阶段验证门槛。
+
+- 已交付 `upload_sessions`、`attachments`、`media_variants` 可回滚 Migration，以及私有 S3/MinIO 直传、Complete HEAD/Magic Bytes/Checksum 校验和短期下载授权。
+- 已交付 IMAGE/FILE Contracts、消息引用校验、确定性开发扫描器、生产扫描器强制配置、BullMQ 稳定 Job ID、重复处理幂等和媒体状态 Outbox 事件。
+- `UPLOADING -> PROCESSING -> READY` 为主链路；扫描感染进入 `QUARANTINED`，扫描不可用或永久校验错误进入 `FAILED`，取消/过期进入 `DELETED`。
+- 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm db:migration:run`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
 
 ### P7 — 第 11 周：高级消息
 

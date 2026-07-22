@@ -1,8 +1,11 @@
 import {
   CreateBucketCommand,
+  DeleteObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from "@nestjs/common";
@@ -56,6 +59,43 @@ export class S3ObjectStorageService
       new PutObjectCommand({ Bucket: this.config.s3.bucket, Key: objectKey }),
       { expiresIn: expiresInSeconds },
     );
+  }
+
+  async headObject(objectKey: string) {
+    try {
+      const value = await this.client.send(
+        new HeadObjectCommand({ Bucket: this.config.s3.bucket, Key: objectKey }),
+      );
+      return {
+        sizeBytes: Number(value.ContentLength ?? 0),
+        contentType: value.ContentType ?? null,
+        etag: value.ETag ?? null,
+      };
+    } catch {
+      throw new Error("Object was not found");
+    }
+  }
+
+  async deleteObject(objectKey: string): Promise<void> {
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.config.s3.bucket, Key: objectKey }),
+    );
+  }
+
+  createPresignedGetUrl(objectKey: string, expiresInSeconds = 300): Promise<string> {
+    return getSignedUrl(
+      this.client,
+      new GetObjectCommand({ Bucket: this.config.s3.bucket, Key: objectKey }),
+      { expiresIn: expiresInSeconds },
+    );
+  }
+
+  async readObject(objectKey: string): Promise<AsyncIterable<Uint8Array>> {
+    const response = await this.client.send(
+      new GetObjectCommand({ Bucket: this.config.s3.bucket, Key: objectKey }),
+    );
+    if (!response.Body) throw new Error("Object body was empty");
+    return response.Body as AsyncIterable<Uint8Array>;
   }
 
   onApplicationShutdown(): void {

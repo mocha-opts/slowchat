@@ -1,4 +1,6 @@
 import {
+  filePayloadSchema,
+  imagePayloadSchema,
   systemMessagePayloadSchema,
   textPayloadSchema,
   type Message,
@@ -18,6 +20,38 @@ export function toMessage(message: MessageEntity): Message {
       type: "SYSTEM",
       contentVersion: 1,
       payload: systemMessagePayloadSchema.parse(message.payload),
+      textPreview: message.textPreview,
+      countsUnread: message.countsUnread,
+      createdAt: message.createdAt.toISOString(),
+    };
+  }
+  if (message.type === "IMAGE") {
+    return {
+      id: message.id,
+      conversationId: message.conversationId,
+      seq: message.seq,
+      senderId: message.senderId,
+      senderDeviceId: message.senderDeviceId,
+      clientMessageId: message.clientMessageId,
+      type: "IMAGE",
+      contentVersion: 1,
+      payload: imagePayloadSchema.parse(message.payload),
+      textPreview: message.textPreview,
+      countsUnread: message.countsUnread,
+      createdAt: message.createdAt.toISOString(),
+    };
+  }
+  if (message.type === "FILE") {
+    return {
+      id: message.id,
+      conversationId: message.conversationId,
+      seq: message.seq,
+      senderId: message.senderId,
+      senderDeviceId: message.senderDeviceId,
+      clientMessageId: message.clientMessageId,
+      type: "FILE",
+      contentVersion: 1,
+      payload: filePayloadSchema.parse(message.payload),
       textPreview: message.textPreview,
       countsUnread: message.countsUnread,
       createdAt: message.createdAt.toISOString(),

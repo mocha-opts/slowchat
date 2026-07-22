@@ -9,7 +9,7 @@ import {
   messageAcceptedSchema,
   messageSchema,
   receiptSchema,
-  sendTextMessageRequestSchema,
+  sendMessageRequestSchema,
 } from "../messages/index.js";
 
 const wsCommandBase = {
@@ -23,7 +23,7 @@ export const messageSendCommandSchema = z
   .object({
     ...wsCommandBase,
     event: z.literal("message.send"),
-    data: sendTextMessageRequestSchema.safeExtend({ conversationId: uuidSchema }),
+    data: sendMessageRequestSchema.and(z.object({ conversationId: uuidSchema })),
   })
   .strict();
 export const messageDeliveredCommandSchema = z
@@ -100,4 +100,7 @@ export const userRealtimeEventNameSchema = z.enum([
   "conversation.updated",
   "message.created",
   "receipt.updated",
+  "media.ready",
+  "media.failed",
+  "media.quarantined",
 ]);

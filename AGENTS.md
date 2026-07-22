@@ -110,6 +110,8 @@ Controller / Gateway / Consumer / Processor
 - RabbitMQ 使用 Durable/Quorum Queue、Persistent Message、`mandatory=true`、Manual ACK、Retry 和 DLQ。
 - 禁止无限 `nack(requeue=true)`；临时错误进入 Retry，永久错误进入 DLQ。
 - BullMQ Job 必须包含版本、稳定 Job ID、超时、有限重试、指数退避和随机抖动。
+- 媒体 Complete 必须重新 HEAD 校验对象；Media Processor 只能由 Job Worker 执行，状态和 Variant 写入必须幂等并与媒体 Outbox 事件同事务提交。
+- 媒体响应、消息 Payload 和同步事件不得暴露完整 Object Key 或 Presigned URL；只有 `READY` 附件可发送和下载。
 - Redis Realtime 与 Redis Jobs 使用独立 Connection、ACL、Prefix 和指标；生产环境优先独立实例。
 
 ## 7. 接口与协议规则

@@ -57,6 +57,20 @@ const environmentSchema = z.object({
   S3_BUCKET: z.string().regex(/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/),
   S3_FORCE_PATH_STYLE: booleanFromString.default(true),
   S3_AUTO_CREATE_BUCKET: booleanFromString.default(false),
+  MEDIA_SCANNER_MODE: z.enum(["deterministic", "required"]).default("deterministic"),
+  MEDIA_UPLOAD_TTL_SECONDS: z.coerce.number().int().min(60).max(86_400).default(3600),
+  MEDIA_MAX_IMAGE_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024)
+    .default(20 * 1024 * 1024),
+  MEDIA_MAX_FILE_BYTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(1024 * 1024 * 1024)
+    .default(1024 * 1024 * 1024),
 });
 
 const weakProductionValues = ["password", "dev_password", "changeme", "minioadmin"];
@@ -99,6 +113,9 @@ export function loadAppConfig(
     }
     if (parsed.AUTH_EXPOSE_CHALLENGE_CODE) {
       throw new Error("Production configuration cannot expose authentication challenge codes");
+    }
+    if (parsed.MEDIA_SCANNER_MODE !== "required") {
+      throw new Error("Production configuration requires an external media scanner");
     }
     if (
       parsed.JWT_PRIVATE_KEY_PATH?.includes(".local") ||
@@ -174,6 +191,12 @@ export function loadAppConfig(
       bucket: parsed.S3_BUCKET,
       forcePathStyle: parsed.S3_FORCE_PATH_STYLE,
       autoCreateBucket: parsed.S3_AUTO_CREATE_BUCKET,
+    },
+    media: {
+      scannerMode: parsed.MEDIA_SCANNER_MODE,
+      uploadTtlSeconds: parsed.MEDIA_UPLOAD_TTL_SECONDS,
+      maxImageBytes: parsed.MEDIA_MAX_IMAGE_BYTES,
+      maxFileBytes: parsed.MEDIA_MAX_FILE_BYTES,
     },
   };
 }

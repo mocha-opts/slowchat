@@ -8,6 +8,7 @@ import { PlatformLoggerModule } from "../platform/logger/platform-logger.module.
 import { RedisModule } from "../platform/redis/redis.module.js";
 import { RequestContextModule } from "../platform/request-context/request-context.module.js";
 import { StorageModule } from "../platform/storage/storage.module.js";
+import { MediaWorkerModule } from "../modules/media/media-worker.module.js";
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { StorageModule } from "../platform/storage/storage.module.js";
     RedisModule.forJobs(),
     StorageModule,
     HealthModule,
+    MediaWorkerModule,
   ],
 })
 export class JobWorkerAppModule {}

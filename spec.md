@@ -222,9 +222,9 @@ POST   /messages/:messageId/forward
 DELETE /messages/:messageId/view   GET    /messages/:messageId/readers
 GET    /messages/search
 
-POST   /files/uploads              POST   /files/uploads/:uploadId/complete
-GET    /files/:attachmentId        POST   /files/:attachmentId/download-url
-DELETE /files/uploads/:uploadId
+POST   /uploads                    POST   /uploads/:uploadId/complete
+GET    /uploads/:uploadId          DELETE /uploads/:uploadId
+GET    /attachments/:attachmentId  GET    /attachments/:attachmentId/download
 
 POST   /sync                       GET    /sync/events
 GET    /sync/snapshot              GET    /conversations/:id/messages/range
@@ -267,6 +267,7 @@ message.updated       message.recalled      receipt.updated
 conversation.created  conversation.updated  conversation.removed
 member.updated        typing.updated        presence.updated
 sync.required         session.revoked       media.ready
+media.failed          media.quarantined
 system.notice
 ```
 
@@ -319,12 +320,41 @@ interface MessageAccepted {
   duplicate: boolean;
   serverTimestamp: number;
 }
+
+interface SendImageMessageRequest {
+  clientMessageId: string;
+  type: "IMAGE";
+  contentVersion: 1;
+  payload: { attachmentId: string };
+}
+
+interface SendFileMessageRequest {
+  clientMessageId: string;
+  type: "FILE";
+  contentVersion: 1;
+  payload: { attachmentId: string; fileName: string; contentType: string; sizeBytes: number };
+}
 ```
 
 - `POST /conversations/direct` 接受目标 `userId`；联系人可以创建，陌生人仅在接收方允许陌生人消息时可以创建，任一方向 Block 都拒绝。
 - 消息历史的 `beforeSeq` 为排他上界，默认 20、最大 50；响应按 Seq 正序返回并携带 `nextBeforeSeq` 和 `hasMore`。
 - P3 的 WS 写命令为 `message.send`、`message.delivered`、`conversation.read`；Envelope 的 `event` 和 Socket.IO 事件名必须一致，`deviceId` 必须匹配认证 Session。
-- P5 已在 P3 的消息事务之上开放 `GROUP + TEXT`，并以 `SYSTEM` 消息记录成员加入/离开、移除、资料更新、群主转让、管理员和禁言变化；Image/File 与高级消息仍按 [plan.md](./plan.md) 的后续阶段交付。
+- P5 已在 P3 的消息事务之上开放 `GROUP + TEXT`，并以 `SYSTEM` 消息记录成员加入/离开、移除、资料更新、群主转让、管理员和禁言变化；P6 在同一消息事务上增加 `IMAGE` 和 `FILE` 引用。
+
+P6 媒体接口位于 `/api/v1`。创建上传会话的请求为 `{ kind, fileName, contentType, sizeBytes, checksumSha256? }`；响应返回业务 `uploadId`、`attachmentId`、`objectKeyDigest`、短期 Presigned PUT URL、过期时间和 `UPLOADING` 状态。完整 Object Key 不出现在响应或日志中。
+
+```text
+POST   /uploads
+POST   /uploads/:uploadId/complete
+GET    /uploads/:uploadId
+DELETE /uploads/:uploadId
+GET    /attachments/:attachmentId
+GET    /attachments/:attachmentId/download
+```
+
+Complete 在数据库行锁内保证状态机幂等，并重新 HEAD 校验对象存在、声明大小和 MIME；图片额外校验 PNG/JPEG/GIF Magic Bytes，可选 SHA-256 必须匹配。首次 Complete 将附件置为 `PROCESSING` 并加入稳定 Job `media:{attachmentId}:v1`；重复 Complete 返回当前状态，不重复创建 Job。扫描感染为 `QUARANTINED`，扫描不可用或永久校验错误为 `FAILED`，只有 `READY` 附件可发送或下载。
+
+消息媒体 Payload 为 `type + contentVersion=1 + payload`：`IMAGE` 至少包含 `attachmentId`，`FILE` 包含 `attachmentId`、文件名、Content-Type 和大小。发送事务会重新校验 Owner、状态、过期时间、Kind 和会话权限；Object Key 和 Presigned URL 不进入消息或同步事件。
 
 P5 群聊接口位于 `/api/v1`：
 

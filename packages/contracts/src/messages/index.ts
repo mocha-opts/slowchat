@@ -2,6 +2,26 @@ import { z } from "zod";
 
 import { uuidSchema } from "../api/common.js";
 
+export const imagePayloadSchema = z
+  .object({
+    attachmentId: uuidSchema,
+    width: z.number().int().positive().safe().nullable().optional(),
+    height: z.number().int().positive().safe().nullable().optional(),
+    caption: z.string().max(4096).optional(),
+  })
+  .strict();
+export type ImagePayload = z.infer<typeof imagePayloadSchema>;
+
+export const filePayloadSchema = z
+  .object({
+    attachmentId: uuidSchema,
+    fileName: z.string().min(1).max(255),
+    contentType: z.string().min(1).max(127),
+    sizeBytes: z.number().int().positive().safe(),
+  })
+  .strict();
+export type FilePayload = z.infer<typeof filePayloadSchema>;
+
 export const messageTypeSchema = z.enum([
   "TEXT",
   "IMAGE",
@@ -58,6 +78,27 @@ export const sendTextMessageRequestSchema = z
   .strict();
 export type SendTextMessageRequest = z.infer<typeof sendTextMessageRequestSchema>;
 
+export const sendMediaMessageRequestSchema = z.discriminatedUnion("type", [
+  z.object({
+    clientMessageId: uuidSchema,
+    type: z.literal("IMAGE"),
+    contentVersion: z.literal(1),
+    payload: imagePayloadSchema,
+  }),
+  z.object({
+    clientMessageId: uuidSchema,
+    type: z.literal("FILE"),
+    contentVersion: z.literal(1),
+    payload: filePayloadSchema,
+  }),
+]);
+export type SendMediaMessageRequest = z.infer<typeof sendMediaMessageRequestSchema>;
+export const sendMessageRequestSchema = z.discriminatedUnion("type", [
+  sendTextMessageRequestSchema,
+  ...sendMediaMessageRequestSchema.options,
+]);
+export type SendMessageRequest = z.infer<typeof sendMessageRequestSchema>;
+
 const messageBaseSchema = z.object({
   id: uuidSchema,
   conversationId: uuidSchema,
@@ -79,7 +120,22 @@ export const systemMessageSchema = messageBaseSchema.extend({
   contentVersion: z.literal(1),
   payload: systemMessagePayloadSchema,
 });
-export const messageSchema = z.discriminatedUnion("type", [textMessageSchema, systemMessageSchema]);
+export const imageMessageSchema = messageBaseSchema.extend({
+  type: z.literal("IMAGE"),
+  contentVersion: z.literal(1),
+  payload: imagePayloadSchema,
+});
+export const fileMessageSchema = messageBaseSchema.extend({
+  type: z.literal("FILE"),
+  contentVersion: z.literal(1),
+  payload: filePayloadSchema,
+});
+export const messageSchema = z.discriminatedUnion("type", [
+  textMessageSchema,
+  imageMessageSchema,
+  fileMessageSchema,
+  systemMessageSchema,
+]);
 export type Message = z.infer<typeof messageSchema>;
 
 export const messageAcceptedSchema = z.object({

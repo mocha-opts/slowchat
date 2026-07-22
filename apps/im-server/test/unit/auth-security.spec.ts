@@ -130,5 +130,11 @@ function config(privatePath: string, publicPath: string): AppConfig {
       forcePathStyle: true,
       autoCreateBucket: false,
     },
+    media: {
+      scannerMode: "deterministic",
+      uploadTtlSeconds: 3600,
+      maxImageBytes: 20 * 1024 * 1024,
+      maxFileBytes: 1024 * 1024 * 1024,
+    },
   };
 }

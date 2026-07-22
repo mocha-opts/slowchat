@@ -55,6 +55,12 @@ export interface AppConfig {
     readonly forcePathStyle: boolean;
     readonly autoCreateBucket: boolean;
   };
+  readonly media: {
+    readonly scannerMode: "deterministic" | "required";
+    readonly uploadTtlSeconds: number;
+    readonly maxImageBytes: number;
+    readonly maxFileBytes: number;
+  };
 }
 
 export const APP_CONFIG = Symbol("APP_CONFIG");

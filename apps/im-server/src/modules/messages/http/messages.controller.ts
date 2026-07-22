@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nestjs/common";
 import { messageHistoryQuerySchema, uuidSchema } from "@im/contracts/api";
-import { sendTextMessageRequestSchema } from "@im/contracts/messages";
+import { sendMessageRequestSchema } from "@im/contracts/messages";
 
 import { parseContract } from "../../../common/contracts/parse-contract.js";
 import { requestTrace } from "../../../common/request/request-trace.js";
@@ -25,7 +25,7 @@ export class MessagesController {
     return this.commands.sendText(
       request.auth,
       parseContract(uuidSchema, id),
-      parseContract(sendTextMessageRequestSchema, body),
+      parseContract(sendMessageRequestSchema, body),
       requestTrace(request),
     );
   }

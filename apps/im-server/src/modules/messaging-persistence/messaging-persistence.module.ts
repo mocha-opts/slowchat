@@ -10,6 +10,9 @@ import { OutboxEventEntity } from "../outbox/persistence/entities/outbox-event.e
 import { GroupInviteEntity } from "../groups/persistence/entities/group-invite.entity.js";
 import { GroupJoinRequestEntity } from "../groups/persistence/entities/group-join-request.entity.js";
 import { GroupProfileEntity } from "../groups/persistence/entities/group-profile.entity.js";
+import { AttachmentEntity } from "../media/persistence/entities/attachment.entity.js";
+import { MediaVariantEntity } from "../media/persistence/entities/media-variant.entity.js";
+import { UploadSessionEntity } from "../media/persistence/entities/upload-session.entity.js";
 
 export const MESSAGING_ENTITIES = [
   ConversationEntity,
@@ -21,6 +24,9 @@ export const MESSAGING_ENTITIES = [
   GroupProfileEntity,
   GroupJoinRequestEntity,
   GroupInviteEntity,
+  UploadSessionEntity,
+  AttachmentEntity,
+  MediaVariantEntity,
 ];
 
 @Module({

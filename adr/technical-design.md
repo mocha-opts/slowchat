@@ -317,6 +317,23 @@ Complete 接口必须幂等：若已进入 PROCESSING/READY，返回当前结果
 
 Bucket 私有；Object Key 由服务端生成；上传/下载 URL 短期有效；Complete 校验扩展名、MIME、Magic Bytes、大小和 Checksum；下载前检查附件与会话权限；日志不得记录完整预签名 URL；临时文件定期清理。
 
+### 7.3 P6 附件状态机、扫描与 Job 幂等
+
+`upload_sessions` 记录上传意图和过期时间，`attachments` 记录业务事实，`media_variants` 记录处理产物。主状态只允许单向推进：
+
+```text
+UPLOADING -> PROCESSING -> READY
+                         -> FAILED
+                         -> QUARANTINED
+UPLOADING ----------------> DELETED  (取消/过期)
+```
+
+Complete 必须重新 HEAD，因为客户端持有 Presigned PUT 时理论上可以覆盖对象；数据库声明的大小和 MIME 不能替代对象实际状态。图片在 Complete 和 Worker 分别做轻量 Magic Bytes/基础元数据校验；提供 SHA-256 时 Complete 同时流式计算摘要。文件字节仍只在客户端与对象存储之间传输，API 只读取服务端校验所需的数据流。
+
+Job 使用 `media:{attachmentId}:v1` 作为稳定 ID。Complete 的数据库状态变更提交后才 enqueue；如果 enqueue 或响应丢失，客户端可重复 Complete，BullMQ 唯一 Job ID 和 Worker 的状态检查保证不重复产物。Worker 在事务中锁定附件并写入 `READY/FAILED/QUARANTINED` 与 `media_variants`，同时写入 Outbox；外部对象写入和数据库提交之间崩溃时允许安全重试，不允许重复数据库副作用。
+
+`VirusScannerPort` 是可替换边界。开发/测试使用确定性扫描器，生产必须显式配置真实扫描器；`UNKNOWN` 不得进入 `READY`。扫描感染进入隔离状态，下载和消息发送均拒绝。媒体状态事件只包含 Attachment ID、状态、版本和必要元数据，不包含 Object Key 或预签名 URL；Realtime 丢失时由 Sync Projection 恢复。
+
 ## 8. Bot 与 Webhook
 
 Bot 只可访问 Scope 和会话成员关系共同允许的资源，发送消息仍经过标准权限、Seq、幂等和 Outbox 链路。

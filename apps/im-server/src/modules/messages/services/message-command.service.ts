@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
-import type { MessageAccepted, SendTextMessageRequest } from "@im/contracts/messages";
+import type { MessageAccepted, SendMessageRequest } from "@im/contracts/messages";
 import { DataSource, type EntityManager } from "typeorm";
 import { v7 as uuidv7 } from "uuid";
 
@@ -17,6 +17,7 @@ import { ConversationEntity } from "../../conversations/persistence/entities/con
 import { GroupProfileEntity } from "../../groups/persistence/entities/group-profile.entity.js";
 import { toMessage } from "../message.mapper.js";
 import { MessageEntity } from "../persistence/entities/message.entity.js";
+import { AttachmentEntity } from "../../media/persistence/entities/attachment.entity.js";
 
 @Injectable()
 export class MessageCommandService {
@@ -30,7 +31,7 @@ export class MessageCommandService {
   async sendText(
     auth: AuthContext,
     conversationId: string,
-    input: SendTextMessageRequest,
+    input: SendMessageRequest,
     trace: CommandTrace = {},
   ): Promise<MessageAccepted> {
     const contentHash = messageContentHash(conversationId, input);
@@ -73,10 +74,10 @@ export class MessageCommandService {
           senderDeviceId: auth.deviceId,
           clientMessageId: input.clientMessageId,
           contentHash,
-          type: "TEXT",
+          type: input.type,
           contentVersion: 1,
           payload: input.payload,
-          textPreview: textPreview(input.payload.text),
+          textPreview: preview(input),
           replyToMessageId: null,
           forwardFromMessageId: null,
           countsUnread: true,
@@ -103,13 +104,7 @@ export class MessageCommandService {
                   END,
                   updated_at = now()
             WHERE conversation_id = $1`,
-          [
-            conversationId,
-            auth.userId,
-            seq,
-            input.payload.mentions ?? [],
-            input.payload.mentionAll === true,
-          ],
+          [conversationId, auth.userId, seq, mentions(input), mentionAll(input)],
         );
         await this.outbox.append(manager, {
           eventId: uuidv7(),
@@ -142,7 +137,7 @@ export class MessageCommandService {
     manager: EntityManager,
     senderId: string,
     conversationId: string,
-    input: SendTextMessageRequest,
+    input: SendMessageRequest,
   ): Promise<{ conversation: ConversationEntity; memberIds: string[] }> {
     const conversation = await manager.getRepository(ConversationEntity).findOneBy({
       id: conversationId,
@@ -162,7 +157,7 @@ export class MessageCommandService {
     if (conversation.type !== "DIRECT" && conversation.type !== "GROUP") {
       throw new AppError(
         "MESSAGE_TYPE_UNSUPPORTED",
-        "This conversation type does not support text messages",
+        "This conversation type does not support messages",
         400,
       );
     }
@@ -170,7 +165,7 @@ export class MessageCommandService {
       if (members.length !== 2)
         throw new AppError("CONVERSATION_CONFLICT", "Conversation membership is invalid", 409);
       const recipient = members.find((member) => member.userId !== senderId)!;
-      if (input.payload.mentions?.length || input.payload.mentionAll)
+      if (input.type === "TEXT" && (input.payload.mentions?.length || input.payload.mentionAll))
         throw new AppError("MESSAGE_PAYLOAD_INVALID", "Mentions are only supported in groups", 400);
       await this.contacts.assertDirectMessagingAllowed(manager, senderId, recipient.userId);
     } else {
@@ -179,10 +174,31 @@ export class MessageCommandService {
       if (profile.allMembersMuted && sender.role === "MEMBER")
         throw new AppError("MESSAGE_FORBIDDEN", "Group messages are muted", 403);
       const activeIds = new Set(members.map((member) => member.userId));
-      if (input.payload.mentions?.some((userId) => !activeIds.has(userId)))
+      if (input.type === "TEXT" && input.payload.mentions?.some((userId) => !activeIds.has(userId)))
         throw new AppError(
           "MESSAGE_PAYLOAD_INVALID",
           "Mention target is not an active member",
+          400,
+        );
+    }
+    const attachmentId = mediaAttachmentId(input);
+    if (attachmentId) {
+      const attachment = await manager
+        .getRepository(AttachmentEntity)
+        .findOneBy({ id: attachmentId });
+      if (!attachment || attachment.ownerId !== senderId)
+        throw new AppError("ATTACHMENT_FORBIDDEN", "Attachment does not belong to the sender", 403);
+      if (attachment.status === "QUARANTINED")
+        throw new AppError("ATTACHMENT_QUARANTINED", "Attachment is quarantined", 403);
+      if (attachment.status !== "READY")
+        throw new AppError("ATTACHMENT_NOT_READY", "Attachment is not ready", 409);
+      if (attachment.expiresAt && attachment.expiresAt.getTime() <= Date.now())
+        throw new AppError("ATTACHMENT_NOT_READY", "Attachment has expired", 409);
+      const expectedKind = input.type === "IMAGE" ? "IMAGE" : "FILE";
+      if (attachment.kind !== expectedKind)
+        throw new AppError(
+          "MESSAGE_PAYLOAD_INVALID",
+          "Attachment kind does not match message type",
           400,
         );
     }
@@ -210,7 +226,7 @@ export class MessageCommandService {
   }
 }
 
-export function messageContentHash(conversationId: string, input: SendTextMessageRequest): string {
+export function messageContentHash(conversationId: string, input: SendMessageRequest): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -223,8 +239,22 @@ export function messageContentHash(conversationId: string, input: SendTextMessag
     .digest("hex");
 }
 
-function textPreview(text: string): string {
-  return Array.from(text).slice(0, 280).join("");
+function preview(input: SendMessageRequest): string {
+  if (input.type === "TEXT") return Array.from(input.payload.text).slice(0, 280).join("");
+  if (input.type === "FILE") return input.payload.fileName.slice(0, 280);
+  return "IMAGE";
+}
+
+function mediaAttachmentId(input: SendMessageRequest): string | null {
+  return input.type === "IMAGE" || input.type === "FILE" ? input.payload.attachmentId : null;
+}
+
+function mentions(input: SendMessageRequest): string[] {
+  return input.type === "TEXT" ? (input.payload.mentions ?? []) : [];
+}
+
+function mentionAll(input: SendMessageRequest): boolean {
+  return input.type === "TEXT" && input.payload.mentionAll === true;
 }
 
 function accepted(message: MessageEntity, duplicate: boolean): MessageAccepted {
