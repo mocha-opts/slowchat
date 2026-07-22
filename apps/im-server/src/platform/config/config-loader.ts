@@ -50,6 +50,7 @@ const environmentSchema = z.object({
   AUTH_LOGIN_WINDOW_SECONDS: z.coerce.number().int().min(60).max(86400).default(900),
   AUTH_EXPOSE_CHALLENGE_CODE: booleanFromString.default(false),
   AUTH_ALLOWED_WS_ORIGINS: z.string().default("http://localhost:3000"),
+  MESSAGE_RECALL_WINDOW_SECONDS: z.coerce.number().int().min(1).max(86_400).default(120),
   S3_ENDPOINT: z.url(),
   S3_REGION: z.string().min(1).default("us-east-1"),
   S3_ACCESS_KEY: z.string().min(1),
@@ -182,6 +183,7 @@ export function loadAppConfig(
       allowedWsOrigins: parsed.AUTH_ALLOWED_WS_ORIGINS.split(",")
         .map((origin) => origin.trim())
         .filter(Boolean),
+      recallWindowSeconds: parsed.MESSAGE_RECALL_WINDOW_SECONDS,
     },
     s3: {
       endpoint: parsed.S3_ENDPOINT,

@@ -45,6 +45,7 @@ export interface AppConfig {
     readonly loginWindowSeconds: number;
     readonly exposeChallengeCode: boolean;
     readonly allowedWsOrigins: readonly string[];
+    readonly recallWindowSeconds: number;
   };
   readonly s3: {
     readonly endpoint: string;

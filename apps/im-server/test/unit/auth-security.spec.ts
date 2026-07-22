@@ -120,6 +120,7 @@ function config(privatePath: string, publicPath: string): AppConfig {
       loginWindowSeconds: 900,
       exposeChallengeCode: true,
       allowedWsOrigins: ["http://localhost:3000"],
+      recallWindowSeconds: 120,
     },
     s3: {
       endpoint: "http://unused",

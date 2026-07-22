@@ -5,10 +5,11 @@ import { ContactInteractionPolicyModule } from "../contacts/contact-interaction-
 import { OutboxWriterModule } from "../outbox/outbox-writer.module.js";
 import { MessageCommandService } from "./services/message-command.service.js";
 import { MessageQueryService } from "./services/message-query.service.js";
+import { AdvancedMessageCommandService } from "./services/advanced-message-command.service.js";
 
 @Module({
   imports: [AuthValidationModule, ContactInteractionPolicyModule, OutboxWriterModule],
-  providers: [MessageCommandService, MessageQueryService],
-  exports: [MessageCommandService, MessageQueryService],
+  providers: [MessageCommandService, MessageQueryService, AdvancedMessageCommandService],
+  exports: [MessageCommandService, MessageQueryService, AdvancedMessageCommandService],
 })
 export class MessagesCoreModule {}

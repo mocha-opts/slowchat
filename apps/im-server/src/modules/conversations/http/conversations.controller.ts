@@ -25,6 +25,7 @@ import { requestTrace } from "../../../common/request/request-trace.js";
 import { AccessTokenGuard, type AuthenticatedRequest } from "../../auth/http/access-token.guard.js";
 import { ConversationCommandService } from "../services/conversation-command.service.js";
 import { ConversationQueryService } from "../services/conversation-query.service.js";
+import { AdvancedMessageCommandService } from "../../messages/services/advanced-message-command.service.js";
 
 @Controller("api/v1/conversations")
 @UseGuards(AccessTokenGuard)
@@ -32,6 +33,7 @@ export class ConversationsController {
   constructor(
     private readonly commands: ConversationCommandService,
     private readonly queries: ConversationQueryService,
+    private readonly advancedMessages: AdvancedMessageCommandService,
   ) {}
 
   @Post("direct")
@@ -69,6 +71,16 @@ export class ConversationsController {
   @HttpCode(HttpStatus.NO_CONTENT)
   hide(@Param("conversationId") id: string, @Req() request: AuthenticatedRequest): Promise<void> {
     return this.commands.hide(request.auth, parseContract(uuidSchema, id));
+  }
+
+  @Delete(":conversationId/history")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  clearHistory(@Param("conversationId") id: string, @Req() request: AuthenticatedRequest) {
+    return this.advancedMessages.clearHistory(
+      request.auth,
+      parseContract(uuidSchema, id),
+      requestTrace(request),
+    );
   }
 
   @Post(":conversationId/read")

@@ -22,6 +22,7 @@ export function toMessage(message: MessageEntity): Message {
       payload: systemMessagePayloadSchema.parse(message.payload),
       textPreview: message.textPreview,
       countsUnread: message.countsUnread,
+      ...messageState(message),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -38,6 +39,7 @@ export function toMessage(message: MessageEntity): Message {
       payload: imagePayloadSchema.parse(message.payload),
       textPreview: message.textPreview,
       countsUnread: message.countsUnread,
+      ...messageState(message),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -54,6 +56,7 @@ export function toMessage(message: MessageEntity): Message {
       payload: filePayloadSchema.parse(message.payload),
       textPreview: message.textPreview,
       countsUnread: message.countsUnread,
+      ...messageState(message),
       createdAt: message.createdAt.toISOString(),
     };
   }
@@ -70,6 +73,17 @@ export function toMessage(message: MessageEntity): Message {
     payload,
     textPreview: message.textPreview,
     countsUnread: message.countsUnread,
+    ...messageState(message),
     createdAt: message.createdAt.toISOString(),
+  };
+}
+
+function messageState(message: MessageEntity) {
+  return {
+    replyToMessageId: message.replyToMessageId,
+    forwardFromMessageId: message.forwardFromMessageId,
+    editedAt: message.editedAt?.toISOString() ?? null,
+    recalledAt: message.recalledAt?.toISOString() ?? null,
+    recalledBy: message.recalledBy,
   };
 }

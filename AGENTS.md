@@ -112,6 +112,8 @@ Controller / Gateway / Consumer / Processor
 - BullMQ Job 必须包含版本、稳定 Job ID、超时、有限重试、指数退避和随机抖动。
 - 媒体 Complete 必须重新 HEAD 校验对象；Media Processor 只能由 Job Worker 执行，状态和 Variant 写入必须幂等并与媒体 Outbox 事件同事务提交。
 - 媒体响应、消息 Payload 和同步事件不得暴露完整 Object Key 或 Presigned URL；只有 `READY` 附件可发送和下载。
+- 高级消息仍必须复用 Message Command Service 和 Outbox：回复目标限于当前会话，转发先校验源消息可见性；撤回、Reaction 和用户级隐藏均使用数据库状态/唯一约束幂等。
+- 用户级隐藏与清空历史只改变当前用户视图（`message_user_hides`、`clear_before_seq`），不得删除或改写其他成员的消息事实；基础搜索使用不透明 Cursor，禁止 Offset 分页。
 - Redis Realtime 与 Redis Jobs 使用独立 Connection、ACL、Prefix 和指标；生产环境优先独立实例。
 
 ## 7. 接口与协议规则

@@ -15,7 +15,9 @@ import { DeviceEntity } from "../../devices/persistence/entities/device.entity.j
 import { DeviceService } from "../../devices/services/device.service.js";
 import { ConversationQueryService } from "../../conversations/services/conversation-query.service.js";
 import { ConversationMemberEntity } from "../../conversations/persistence/entities/conversation-member.entity.js";
+import { ConversationUserStateEntity } from "../../conversations/persistence/entities/conversation-user-state.entity.js";
 import { MessageEntity } from "../../messages/persistence/entities/message.entity.js";
+import { MessageUserHideEntity } from "../../messages/persistence/entities/message-user-hide.entity.js";
 import { toMessage } from "../../messages/message.mapper.js";
 import { UserService } from "../../users/services/user.service.js";
 import { UserSyncEventEntity } from "../persistence/entities/user-sync-event.entity.js";
@@ -89,7 +91,20 @@ export class SyncQueryService {
     const builder = this.dataSource
       .getRepository(MessageEntity)
       .createQueryBuilder("message")
-      .where("message.conversation_id = :conversationId", { conversationId });
+      .innerJoin(
+        ConversationUserStateEntity,
+        "state",
+        "state.conversation_id = message.conversation_id AND state.user_id = :userId AND message.seq > state.clear_before_seq",
+        { userId },
+      )
+      .leftJoin(
+        MessageUserHideEntity,
+        "hidden",
+        "hidden.message_id = message.id AND hidden.user_id = :userId",
+        { userId },
+      )
+      .where("message.conversation_id = :conversationId", { conversationId })
+      .andWhere("hidden.message_id IS NULL");
     if (afterSeq !== undefined) builder.andWhere("message.seq > :afterSeq", { afterSeq });
     if (beforeSeq !== undefined) builder.andWhere("message.seq < :beforeSeq", { beforeSeq });
     const rows = await builder

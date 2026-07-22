@@ -309,6 +309,7 @@ function createConfig(overrides: { rabbitMqUrl?: string; s3Endpoint?: string } =
       loginWindowSeconds: 900,
       exposeChallengeCode: true,
       allowedWsOrigins: ["http://localhost:3000"],
+      recallWindowSeconds: 120,
     },
     s3: {
       endpoint: overrides.s3Endpoint ?? "http://unused",

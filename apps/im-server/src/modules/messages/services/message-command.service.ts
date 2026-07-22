@@ -78,8 +78,8 @@ export class MessageCommandService {
           contentVersion: 1,
           payload: input.payload,
           textPreview: preview(input),
-          replyToMessageId: null,
-          forwardFromMessageId: null,
+          replyToMessageId: input.replyToMessageId ?? null,
+          forwardFromMessageId: input.forwardFromMessageId ?? null,
           countsUnread: true,
           editedAt: null,
           recalledAt: null,
@@ -181,6 +181,7 @@ export class MessageCommandService {
           400,
         );
     }
+    await this.assertMessageReferences(manager, senderId, conversationId, input);
     const attachmentId = mediaAttachmentId(input);
     if (attachmentId) {
       const attachment = await manager
@@ -208,6 +209,33 @@ export class MessageCommandService {
     if (conversation.type === "DIRECT" && stateCount !== 2)
       throw new AppError("CONVERSATION_CONFLICT", "Conversation state is invalid", 409);
     return { conversation, memberIds: members.map((member) => member.userId) };
+  }
+
+  private async assertMessageReferences(
+    manager: EntityManager,
+    senderId: string,
+    conversationId: string,
+    input: SendMessageRequest,
+  ): Promise<void> {
+    if (input.replyToMessageId) {
+      const reply = await manager
+        .getRepository(MessageEntity)
+        .findOneBy({ id: input.replyToMessageId, conversationId });
+      if (!reply) throw new AppError("MESSAGE_NOT_FOUND", "Reply target was not found", 404);
+    }
+    if (input.forwardFromMessageId) {
+      const source = await manager
+        .getRepository(MessageEntity)
+        .findOneBy({ id: input.forwardFromMessageId });
+      if (!source) throw new AppError("MESSAGE_NOT_FOUND", "Forward source was not found", 404);
+      const canView = await manager.getRepository(ConversationMemberEntity).existsBy({
+        conversationId: source.conversationId,
+        userId: senderId,
+        status: "ACTIVE",
+      });
+      if (!canView)
+        throw new AppError("MESSAGE_FORBIDDEN", "Forward source is not accessible", 403);
+    }
   }
 
   private assertDuplicateMatches(

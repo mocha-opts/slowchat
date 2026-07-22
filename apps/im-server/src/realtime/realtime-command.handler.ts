@@ -1,8 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import {
   conversationReadCommandSchema,
+  messageRecallCommandSchema,
   messageDeliveredCommandSchema,
   messageSendCommandSchema,
+  reactionAddCommandSchema,
+  reactionRemoveCommandSchema,
   type WsAck,
   type WsServerEvent,
 } from "@im/contracts/websocket";
@@ -10,6 +13,7 @@ import { parseContract } from "../common/contracts/parse-contract.js";
 import { AppError } from "../common/errors/app-error.js";
 import { ConversationCommandService } from "../modules/conversations/services/conversation-command.service.js";
 import { MessageCommandService } from "../modules/messages/services/message-command.service.js";
+import { AdvancedMessageCommandService } from "../modules/messages/services/advanced-message-command.service.js";
 import type { AuthenticatedSocket } from "./authenticated-socket.js";
 
 @Injectable()
@@ -17,6 +21,7 @@ export class RealtimeCommandHandler {
   constructor(
     private readonly messages: MessageCommandService,
     private readonly conversations: ConversationCommandService,
+    private readonly advanced: AdvancedMessageCommandService,
   ) {}
 
   async send(client: AuthenticatedSocket, value: unknown): Promise<WsAck> {
@@ -74,6 +79,56 @@ export class RealtimeCommandHandler {
         { requestId: command.requestId },
       );
       return ok(command.requestId, receipt);
+    } catch (error) {
+      return failure(requestId, error);
+    }
+  }
+
+  async recall(client: AuthenticatedSocket, value: unknown): Promise<WsAck> {
+    let requestId = requestIdOf(value);
+    try {
+      const command = parseContract(messageRecallCommandSchema, value);
+      requestId = command.requestId;
+      const result = await this.advanced.recall(
+        this.auth(client, command.deviceId),
+        command.data.messageId,
+        { requestId: command.requestId },
+      );
+      return ok(command.requestId, result);
+    } catch (error) {
+      return failure(requestId, error);
+    }
+  }
+
+  async addReaction(client: AuthenticatedSocket, value: unknown): Promise<WsAck> {
+    let requestId = requestIdOf(value);
+    try {
+      const command = parseContract(reactionAddCommandSchema, value);
+      requestId = command.requestId;
+      const result = await this.advanced.addReaction(
+        this.auth(client, command.deviceId),
+        command.data.messageId,
+        { reaction: command.data.reaction },
+        { requestId: command.requestId },
+      );
+      return ok(command.requestId, result);
+    } catch (error) {
+      return failure(requestId, error);
+    }
+  }
+
+  async removeReaction(client: AuthenticatedSocket, value: unknown): Promise<WsAck> {
+    let requestId = requestIdOf(value);
+    try {
+      const command = parseContract(reactionRemoveCommandSchema, value);
+      requestId = command.requestId;
+      await this.advanced.removeReaction(
+        this.auth(client, command.deviceId),
+        command.data.messageId,
+        command.data.reaction,
+        { requestId: command.requestId },
+      );
+      return ok(command.requestId, null);
     } catch (error) {
       return failure(requestId, error);
     }

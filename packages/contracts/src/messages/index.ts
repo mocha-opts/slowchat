@@ -74,6 +74,8 @@ export const sendTextMessageRequestSchema = z
     type: z.literal("TEXT"),
     contentVersion: z.literal(1),
     payload: textPayloadSchema,
+    replyToMessageId: uuidSchema.optional(),
+    forwardFromMessageId: uuidSchema.optional(),
   })
   .strict();
 export type SendTextMessageRequest = z.infer<typeof sendTextMessageRequestSchema>;
@@ -84,12 +86,16 @@ export const sendMediaMessageRequestSchema = z.discriminatedUnion("type", [
     type: z.literal("IMAGE"),
     contentVersion: z.literal(1),
     payload: imagePayloadSchema,
+    replyToMessageId: uuidSchema.optional(),
+    forwardFromMessageId: uuidSchema.optional(),
   }),
   z.object({
     clientMessageId: uuidSchema,
     type: z.literal("FILE"),
     contentVersion: z.literal(1),
     payload: filePayloadSchema,
+    replyToMessageId: uuidSchema.optional(),
+    forwardFromMessageId: uuidSchema.optional(),
   }),
 ]);
 export type SendMediaMessageRequest = z.infer<typeof sendMediaMessageRequestSchema>;
@@ -108,6 +114,11 @@ const messageBaseSchema = z.object({
   clientMessageId: uuidSchema,
   textPreview: z.string(),
   countsUnread: z.boolean(),
+  replyToMessageId: uuidSchema.nullable().optional(),
+  forwardFromMessageId: uuidSchema.nullable().optional(),
+  editedAt: z.iso.datetime().nullable().optional(),
+  recalledAt: z.iso.datetime().nullable().optional(),
+  recalledBy: uuidSchema.nullable().optional(),
   createdAt: z.iso.datetime(),
 });
 export const textMessageSchema = messageBaseSchema.extend({
@@ -156,6 +167,30 @@ export const receiptSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 export type Receipt = z.infer<typeof receiptSchema>;
+
+export const reactionSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine(
+    (value) =>
+      [...value].every((character) => {
+        const codePoint = character.codePointAt(0) ?? 0;
+        return codePoint >= 0x20 && codePoint !== 0x7f;
+      }),
+    "Reaction contains control characters",
+  );
+export type Reaction = z.infer<typeof reactionSchema>;
+
+export const messageReactionSchema = z.object({
+  id: uuidSchema,
+  messageId: uuidSchema,
+  userId: uuidSchema,
+  reaction: reactionSchema,
+  createdAt: z.iso.datetime(),
+});
+export type MessageReaction = z.infer<typeof messageReactionSchema>;
 
 function utf8ByteLength(value: string): number {
   let bytes = 0;

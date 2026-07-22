@@ -13,6 +13,8 @@ import { GroupProfileEntity } from "../groups/persistence/entities/group-profile
 import { AttachmentEntity } from "../media/persistence/entities/attachment.entity.js";
 import { MediaVariantEntity } from "../media/persistence/entities/media-variant.entity.js";
 import { UploadSessionEntity } from "../media/persistence/entities/upload-session.entity.js";
+import { MessageReactionEntity } from "../messages/persistence/entities/message-reaction.entity.js";
+import { MessageUserHideEntity } from "../messages/persistence/entities/message-user-hide.entity.js";
 
 export const MESSAGING_ENTITIES = [
   ConversationEntity,
@@ -27,6 +29,8 @@ export const MESSAGING_ENTITIES = [
   UploadSessionEntity,
   AttachmentEntity,
   MediaVariantEntity,
+  MessageReactionEntity,
+  MessageUserHideEntity,
 ];
 
 @Module({

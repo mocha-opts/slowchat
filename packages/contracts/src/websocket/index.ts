@@ -8,9 +8,11 @@ import { uuidSchema } from "../api/common.js";
 import {
   messageAcceptedSchema,
   messageSchema,
+  reactionSchema,
   receiptSchema,
   sendMessageRequestSchema,
 } from "../messages/index.js";
+import { addReactionRequestSchema } from "../api/advanced-messages.js";
 
 const wsCommandBase = {
   version: z.literal(1),
@@ -40,11 +42,35 @@ export const conversationReadCommandSchema = z
     data: readConversationRequestSchema.extend({ conversationId: uuidSchema }),
   })
   .strict();
+export const messageRecallCommandSchema = z
+  .object({
+    ...wsCommandBase,
+    event: z.literal("message.recall"),
+    data: z.object({ messageId: uuidSchema }).strict(),
+  })
+  .strict();
+export const reactionAddCommandSchema = z
+  .object({
+    ...wsCommandBase,
+    event: z.literal("reaction.add"),
+    data: z.object({ messageId: uuidSchema }).merge(addReactionRequestSchema),
+  })
+  .strict();
+export const reactionRemoveCommandSchema = z
+  .object({
+    ...wsCommandBase,
+    event: z.literal("reaction.remove"),
+    data: z.object({ messageId: uuidSchema, reaction: reactionSchema }).strict(),
+  })
+  .strict();
 
 export const p3WsCommandSchema = z.discriminatedUnion("event", [
   messageSendCommandSchema,
   messageDeliveredCommandSchema,
   conversationReadCommandSchema,
+  messageRecallCommandSchema,
+  reactionAddCommandSchema,
+  reactionRemoveCommandSchema,
 ]);
 export type P3WsCommand = z.infer<typeof p3WsCommandSchema>;
 
@@ -103,4 +129,8 @@ export const userRealtimeEventNameSchema = z.enum([
   "media.ready",
   "media.failed",
   "media.quarantined",
+  "message.recalled",
+  "message.reaction.updated",
+  "reaction.updated",
+  "message.hidden",
 ]);

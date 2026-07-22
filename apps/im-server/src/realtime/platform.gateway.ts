@@ -72,6 +72,21 @@ export class PlatformGateway implements OnGatewayConnection, OnGatewayDisconnect
     return this.commands.read(client, payload);
   }
 
+  @SubscribeMessage("message.recall")
+  messageRecall(client: AuthenticatedSocket, payload: unknown) {
+    return this.commands.recall(client, payload);
+  }
+
+  @SubscribeMessage("reaction.add")
+  reactionAdd(client: AuthenticatedSocket, payload: unknown) {
+    return this.commands.addReaction(client, payload);
+  }
+
+  @SubscribeMessage("reaction.remove")
+  reactionRemove(client: AuthenticatedSocket, payload: unknown) {
+    return this.commands.removeReaction(client, payload);
+  }
+
   private bearerToken(client: AuthenticatedSocket): string {
     const handshakeAuth = client.handshake.auth as Record<string, unknown>;
     const authToken = handshakeAuth.token;

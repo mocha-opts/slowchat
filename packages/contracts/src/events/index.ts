@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { uuidSchema } from "../api/common.js";
 import { conversationSchema } from "../api/conversations.js";
-import { messageSchema, receiptSchema } from "../messages/index.js";
+import { messageReactionSchema, messageSchema, receiptSchema } from "../messages/index.js";
 
 /**
  * 媒体状态事件只携带业务元数据，不携带 Object Key 或预签名 URL。
@@ -26,6 +26,9 @@ export const domainEventTypeSchema = z.enum([
   "media.ready.v1",
   "media.failed.v1",
   "media.quarantined.v1",
+  "message.recalled.v1",
+  "message.reaction.updated.v1",
+  "message.hidden.v1",
 ]);
 export type DomainEventType = z.infer<typeof domainEventTypeSchema>;
 
@@ -69,6 +72,35 @@ export const receiptUpdatedEventSchema = domainEventBaseSchema.extend({
   data: receiptSchema,
 });
 
+export const messageRecalledEventSchema = domainEventBaseSchema.extend({
+  eventType: z.literal("message.recalled.v1"),
+  aggregateType: z.literal("message"),
+  data: messageSchema,
+});
+
+export const messageReactionUpdatedEventSchema = domainEventBaseSchema.extend({
+  eventType: z.literal("message.reaction.updated.v1"),
+  aggregateType: z.literal("message"),
+  data: z.object({
+    messageId: uuidSchema,
+    conversationId: uuidSchema,
+    userId: uuidSchema,
+    reaction: messageReactionSchema.shape.reaction,
+    action: z.enum(["ADDED", "REMOVED"]),
+  }),
+});
+
+export const messageHiddenEventSchema = domainEventBaseSchema.extend({
+  eventType: z.literal("message.hidden.v1"),
+  aggregateType: z.literal("message"),
+  data: z.object({
+    messageId: uuidSchema,
+    conversationId: uuidSchema,
+    userId: uuidSchema,
+    hidden: z.literal(true),
+  }),
+});
+
 const mediaStatusBaseEventSchema = domainEventBaseSchema.extend({
   aggregateType: z.literal("attachment"),
   data: mediaStatusEventDataSchema,
@@ -92,6 +124,9 @@ export const p3DomainEventSchema = z.discriminatedUnion("eventType", [
   conversationUpdatedEventSchema,
   messageCreatedEventSchema,
   receiptUpdatedEventSchema,
+  messageRecalledEventSchema,
+  messageReactionUpdatedEventSchema,
+  messageHiddenEventSchema,
   mediaReadyEventSchema,
   mediaFailedEventSchema,
   mediaQuarantinedEventSchema,

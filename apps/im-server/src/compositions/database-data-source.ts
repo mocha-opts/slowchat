@@ -11,6 +11,7 @@ import { CreateConversationsMessagesOutbox1784649600000 } from "../platform/data
 import { CreateSyncProjection1784736000000 } from "../platform/database/migrations/202607230001-create-sync-projection.js";
 import { CreateGroups1784822400000 } from "../platform/database/migrations/202607240001-create-groups.js";
 import { CreateMedia1784908800000 } from "../platform/database/migrations/202607250001-create-media.js";
+import { CreateAdvancedMessages1784995200000 } from "../platform/database/migrations/202607260001-create-advanced-messages.js";
 import { SYNC_ENTITIES } from "../modules/sync/persistence/sync-persistence.module.js";
 
 loadEnvironmentFile();
@@ -27,5 +28,6 @@ export default new DataSource({
     CreateSyncProjection1784736000000,
     CreateGroups1784822400000,
     CreateMedia1784908800000,
+    CreateAdvancedMessages1784995200000,
   ],
 });

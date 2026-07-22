@@ -24,10 +24,12 @@ import {
   attachmentDownloadSchema,
   completeUploadResponseSchema,
   uploadSessionSchema,
+  messageSearchResponseSchema,
+  reactionResponseSchema,
   type TokenResponse,
 } from "@im/contracts/api";
 import { apiErrorEnvelopeSchema } from "@im/contracts/errors";
-import { messageAcceptedSchema, receiptSchema } from "@im/contracts/messages";
+import { messageAcceptedSchema, messageSchema, receiptSchema } from "@im/contracts/messages";
 import { wsAckSchema, wsServerEventSchema } from "@im/contracts/websocket";
 import { io, type Socket } from "socket.io-client";
 import request from "supertest";
@@ -45,6 +47,7 @@ import { CreateConversationsMessagesOutbox1784649600000 } from "../../src/platfo
 import { CreateSyncProjection1784736000000 } from "../../src/platform/database/migrations/202607230001-create-sync-projection.js";
 import { CreateGroups1784822400000 } from "../../src/platform/database/migrations/202607240001-create-groups.js";
 import { CreateMedia1784908800000 } from "../../src/platform/database/migrations/202607250001-create-media.js";
+import { CreateAdvancedMessages1784995200000 } from "../../src/platform/database/migrations/202607260001-create-advanced-messages.js";
 import { RabbitMqService } from "../../src/platform/rabbitmq/rabbitmq.service.js";
 import type { ManagedRedis } from "../../src/platform/redis/managed-redis.js";
 import { REDIS_REALTIME } from "../../src/platform/redis/redis.tokens.js";
@@ -96,6 +99,7 @@ describe("P3 direct messaging E2E", () => {
         CreateSyncProjection1784736000000,
         CreateGroups1784822400000,
         CreateMedia1784908800000,
+        CreateAdvancedMessages1784995200000,
       ],
     });
     await migrationDataSource.initialize();
@@ -128,6 +132,7 @@ describe("P3 direct messaging E2E", () => {
     if (realtime) await realtime.close();
     if (api) await api.close();
     if (migrationDataSource?.isInitialized) {
+      await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
@@ -522,6 +527,150 @@ describe("P3 direct messaging E2E", () => {
       ).body,
     );
     expect(download.downloadUrl).toContain("X-Amz");
+  });
+
+  it("supports reply, forward, recall, reactions, per-user hide and search", async () => {
+    const alice = await register("p7-alice@example.com", "p7_alice", "p7-alice-device");
+    const bob = await register("p7-bob@example.com", "p7_bob", "p7-bob-device");
+    const friend = friendRequestSchema.parse(
+      (
+        await request(httpServer())
+          .post("/api/v1/friend-requests")
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .send({ userId: bob.user.id })
+          .expect(201)
+      ).body,
+    );
+    await request(httpServer())
+      .post(`/api/v1/friend-requests/${friend.id}/accept`)
+      .set("Authorization", `Bearer ${bob.accessToken}`)
+      .expect(201);
+    const conversation = conversationSchema.parse(
+      (
+        await request(httpServer())
+          .post("/api/v1/conversations/direct")
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .send({ userId: bob.user.id })
+          .expect(201)
+      ).body,
+    );
+
+    const source = messageAcceptedSchema.parse(
+      (
+        await request(httpServer())
+          .post(`/api/v1/conversations/${conversation.id}/messages`)
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .send(textMessage(uuidv7(), "p7 searchable source"))
+          .expect(201)
+      ).body,
+    );
+    const reply = messageAcceptedSchema.parse(
+      (
+        await request(httpServer())
+          .post(`/api/v1/conversations/${conversation.id}/messages`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .send({
+            ...textMessage(uuidv7(), "p7 reply"),
+            replyToMessageId: source.messageId,
+          })
+          .expect(201)
+      ).body,
+    );
+    const replyMessage = messageSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/messages/${reply.messageId}`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(replyMessage.replyToMessageId).toBe(source.messageId);
+
+    const reaction = reactionResponseSchema.parse(
+      (
+        await request(httpServer())
+          .post(`/api/v1/messages/${source.messageId}/reactions`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .send({ reaction: "👍" })
+          .expect(201)
+      ).body,
+    );
+    const duplicateReaction = reactionResponseSchema.parse(
+      (
+        await request(httpServer())
+          .post(`/api/v1/messages/${source.messageId}/reactions`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .send({ reaction: "👍" })
+          .expect(201)
+      ).body,
+    );
+    expect(duplicateReaction.id).toBe(reaction.id);
+    await request(httpServer())
+      .delete(`/api/v1/messages/${source.messageId}/reactions/${encodeURIComponent("👍")}`)
+      .set("Authorization", `Bearer ${bob.accessToken}`)
+      .expect(200);
+
+    const search = messageSearchResponseSchema.parse(
+      (
+        await request(httpServer())
+          .get("/api/v1/messages/search")
+          .query({ q: "searchable", limit: 20 })
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(search.items.map((message) => message.id)).toContain(source.messageId);
+
+    const forwarded = messageAcceptedSchema.parse(
+      (
+        await request(httpServer())
+          .post(`/api/v1/messages/${source.messageId}/forward`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .send({ clientMessageId: uuidv7(), conversationId: conversation.id })
+          .expect(201)
+      ).body,
+    );
+    const forwardedMessage = messageSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/messages/${forwarded.messageId}`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(forwardedMessage.forwardFromMessageId).toBe(source.messageId);
+
+    const recalled = messageSchema.parse(
+      (
+        await request(httpServer())
+          .post(`/api/v1/messages/${source.messageId}/recall`)
+          .set("Authorization", `Bearer ${alice.accessToken}`)
+          .expect(201)
+      ).body,
+    );
+    expect(recalled.recalledAt).not.toBeNull();
+
+    await request(httpServer())
+      .delete(`/api/v1/messages/${reply.messageId}/view`)
+      .set("Authorization", `Bearer ${bob.accessToken}`)
+      .expect(204);
+    await request(httpServer())
+      .get(`/api/v1/messages/${reply.messageId}`)
+      .set("Authorization", `Bearer ${bob.accessToken}`)
+      .expect(404);
+    await request(httpServer())
+      .delete(`/api/v1/conversations/${conversation.id}/history`)
+      .set("Authorization", `Bearer ${bob.accessToken}`)
+      .expect(204);
+    const cleared = messageHistoryResponseSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/conversations/${conversation.id}/messages?limit=20`)
+          .set("Authorization", `Bearer ${bob.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(cleared.items).toHaveLength(0);
   });
 
   async function register(

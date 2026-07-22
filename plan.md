@@ -215,6 +215,13 @@
 
 退出门槛：撤回同步到所有设备；Reaction 幂等；用户级删除不影响其他成员；若交付编辑，旧 Payload 版本保持兼容。
 
+状态：✅ 已实现并通过阶段验证门槛。
+
+- 已交付回复/引用字段、文本转发、发送者和群管理员撤回、用户级消息隐藏、清空个人历史、Reaction 幂等和 PostgreSQL 游标搜索。
+- `message_recalled.v1`、`message.reaction.updated.v1`、`message.hidden.v1` 与既有 Outbox、Realtime Dispatch、Sync Projection 链路复用稳定 `eventId`；用户级隐藏只改变当前用户视图，不改写消息事实。
+- 撤回默认窗口由 `MESSAGE_RECALL_WINDOW_SECONDS` 控制（默认 120 秒）；编辑、收藏、定时消息和高级搜索引擎仍为 POST-MVP。
+- 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm db:migration:run`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
+
 ### P8 — 第 12 周：开放平台、Web SDK 和 Bot
 
 依赖：P3、P4、P6  
