@@ -324,7 +324,29 @@ interface MessageAccepted {
 - `POST /conversations/direct` 接受目标 `userId`；联系人可以创建，陌生人仅在接收方允许陌生人消息时可以创建，任一方向 Block 都拒绝。
 - 消息历史的 `beforeSeq` 为排他上界，默认 20、最大 50；响应按 Seq 正序返回并携带 `nextBeforeSeq` 和 `hasMore`。
 - P3 的 WS 写命令为 `message.send`、`message.delivered`、`conversation.read`；Envelope 的 `event` 和 Socket.IO 事件名必须一致，`deviceId` 必须匹配认证 Session。
-- P3 只开放 `DIRECT + TEXT`。Group/System、Image/File、持久 Sync 与高级消息仍按 [plan.md](./plan.md) 的后续阶段交付。
+- P5 已在 P3 的消息事务之上开放 `GROUP + TEXT`，并以 `SYSTEM` 消息记录成员加入/离开、移除、资料更新、群主转让、管理员和禁言变化；Image/File 与高级消息仍按 [plan.md](./plan.md) 的后续阶段交付。
+
+P5 群聊接口位于 `/api/v1`：
+
+```text
+POST   /conversations/groups
+GET    /conversations/:conversationId/group
+PATCH  /conversations/:conversationId/group
+GET    /conversations/:conversationId/members
+POST   /conversations/:conversationId/members
+PATCH  /conversations/:conversationId/members/:userId
+DELETE /conversations/:conversationId/members/:userId
+POST   /conversations/:conversationId/leave
+POST   /conversations/:conversationId/transfer-owner
+DELETE /conversations/:conversationId
+POST   /conversations/:conversationId/invites
+POST   /group-invites/:inviteId/decision
+POST   /conversations/:conversationId/join-requests
+GET    /conversations/:conversationId/join-requests
+POST   /group-join-requests/:requestId/decision
+```
+
+群资料和成员变更均在 Command Service 事务内完成。`OWNER` 可转让群主、管理管理员和解散；`OWNER/ADMIN` 可审核申请、移除成员和禁言；成员是否可邀请由 `allowMemberInvites` 控制。非成员读取/发送均拒绝，被移除成员立即失去权限。群系统消息与文本消息共享同一会话 Seq，且 `countsUnread=false`；群消息不进行逐成员 Fan-out Write。
 
 ### 4.3 Sync API
 

@@ -18,6 +18,9 @@ import {
   snapshotSchema,
   syncResponseSchema,
   tokenResponseSchema,
+  groupProfileSchema,
+  groupInviteSchema,
+  groupMembersResponseSchema,
   type TokenResponse,
 } from "@im/contracts/api";
 import { apiErrorEnvelopeSchema } from "@im/contracts/errors";
@@ -36,6 +39,7 @@ import { createDatabaseOptions } from "../../src/platform/database/database-opti
 import { CreateAuthUsersContacts1784563200000 } from "../../src/platform/database/migrations/202607210001-create-auth-users-contacts.js";
 import { CreateConversationsMessagesOutbox1784649600000 } from "../../src/platform/database/migrations/202607220001-create-conversations-messages-outbox.js";
 import { CreateSyncProjection1784736000000 } from "../../src/platform/database/migrations/202607230001-create-sync-projection.js";
+import { CreateGroups1784822400000 } from "../../src/platform/database/migrations/202607240001-create-groups.js";
 import { RabbitMqService } from "../../src/platform/rabbitmq/rabbitmq.service.js";
 import type { ManagedRedis } from "../../src/platform/redis/managed-redis.js";
 import { REDIS_REALTIME } from "../../src/platform/redis/redis.tokens.js";
@@ -84,6 +88,7 @@ describe("P3 direct messaging E2E", () => {
         CreateAuthUsersContacts1784563200000,
         CreateConversationsMessagesOutbox1784649600000,
         CreateSyncProjection1784736000000,
+        CreateGroups1784822400000,
       ],
     });
     await migrationDataSource.initialize();
@@ -113,6 +118,7 @@ describe("P3 direct messaging E2E", () => {
     if (realtime) await realtime.close();
     if (api) await api.close();
     if (migrationDataSource?.isInitialized) {
+      await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
       await migrationDataSource.undoLastMigration();
@@ -365,6 +371,65 @@ describe("P3 direct messaging E2E", () => {
       );
       return rows[0]?.status === "PUBLISHED";
     });
+  });
+
+  it("supports group membership, shared system messages and group text", async () => {
+    const owner = await register("p5-owner@example.com", "p5_owner", "p5-owner-device");
+    const member = await register("p5-member@example.com", "p5_member", "p5-member-device");
+    const outsider = await register("p5-outsider@example.com", "p5_outsider", "p5-outsider-device");
+    const created = await request(httpServer())
+      .post("/api/v1/conversations/groups")
+      .set("Authorization", `Bearer ${owner.accessToken}`)
+      .send({ title: "P5 team", joinMode: "INVITE_ONLY" })
+      .expect(201);
+    const createdConversation = conversationSchema.parse(created.body);
+    const group = groupProfileSchema.parse(
+      (
+        await request(httpServer())
+          .get(`/api/v1/conversations/${createdConversation.id}/group`)
+          .set("Authorization", `Bearer ${owner.accessToken}`)
+          .expect(200)
+      ).body,
+    );
+    expect(group.title).toBe("P5 team");
+    const invite = await request(httpServer())
+      .post(`/api/v1/conversations/${group.conversationId}/invites`)
+      .set("Authorization", `Bearer ${owner.accessToken}`)
+      .send({ userId: member.user.id })
+      .expect(201);
+    const inviteRecord = groupInviteSchema.parse(invite.body);
+    await request(httpServer())
+      .post(`/api/v1/group-invites/${inviteRecord.id}/decision`)
+      .set("Authorization", `Bearer ${member.accessToken}`)
+      .send({ decision: "ACCEPTED" })
+      .expect(201);
+    const members = await request(httpServer())
+      .get(`/api/v1/conversations/${group.conversationId}/members`)
+      .set("Authorization", `Bearer ${member.accessToken}`)
+      .expect(200);
+    const memberList = groupMembersResponseSchema.parse(members.body);
+    expect(memberList.items.map((item) => item.user.id)).toEqual(
+      expect.arrayContaining([owner.user.id, member.user.id]),
+    );
+    await request(httpServer())
+      .post(`/api/v1/conversations/${group.conversationId}/messages`)
+      .set("Authorization", `Bearer ${member.accessToken}`)
+      .send(textMessage(uuidv7(), "hello group"))
+      .expect(201);
+    await request(httpServer())
+      .post(`/api/v1/conversations/${group.conversationId}/messages`)
+      .set("Authorization", `Bearer ${outsider.accessToken}`)
+      .send(textMessage(uuidv7(), "not allowed"))
+      .expect(403);
+    await request(httpServer())
+      .delete(`/api/v1/conversations/${group.conversationId}/members/${member.user.id}`)
+      .set("Authorization", `Bearer ${owner.accessToken}`)
+      .expect(204);
+    await request(httpServer())
+      .post(`/api/v1/conversations/${group.conversationId}/messages`)
+      .set("Authorization", `Bearer ${member.accessToken}`)
+      .send(textMessage(uuidv7(), "removed"))
+      .expect(403);
   });
 
   async function register(

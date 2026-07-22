@@ -201,6 +201,12 @@ P4 实现细节：
 - Snapshot 使用 PostgreSQL 一致性读取组合用户、设备、联系人、黑名单、会话摘要和最新游标；客户端将快照落地后从返回游标继续增量同步。
 - P4 的 SDK 在本地按 `eventId` 去重，先应用事件再提交游标；事件游标不连续时暂停顺序应用并重新执行 Sync。刷新锁保证同一 Refresh Token 不被多个请求并发消费。
 
+## 4.5 群聊成员与系统消息（P5）
+
+群资料、加入申请和邀请分别落在 `group_profiles`、`group_join_requests`、`group_invites`；成员状态继续复用 `conversation_members`，因此权限查询与消息发送都以 PostgreSQL 当前 `ACTIVE` 成员记录为最终依据。`OWNER`、`ADMIN`、`MEMBER` 的变更在 Command Service 事务内完成，部分唯一索引保证同一群同一用户只能有一个 Pending 申请或邀请。
+
+群生命周期事件不另造序列：系统消息先原子递增 `conversations.last_seq`，再写入 `messages(type=SYSTEM, counts_unread=false)` 和 Outbox，和文本消息共享 `conversationId + seq`。RabbitMQ/Realtime 仅负责通知，成员被移除后即使通知丢失，下一次 HTTP/WS 命令仍会重新读取数据库并拒绝访问。群消息只写一次事实和 Outbox audience，不做逐成员消息 Fan-out 或逐消息永久回执。
+
 ### 4.3 事件与应用顺序
 
 同步事件覆盖消息创建/更新/撤回、回执、会话创建/更新/移除、成员/群/联系人变化、设备撤销和媒体就绪。SDK 必须：

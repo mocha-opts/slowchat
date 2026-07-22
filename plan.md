@@ -169,6 +169,14 @@
 
 退出门槛：非成员不可访问；移除立即生效；群主/管理员权限完整；500 人群投递和恢复正常。
 
+状态：✅ 已实现并通过阶段验证门槛。
+
+- 已交付 `Groups` 模块、`group_profiles`、`group_join_requests`、`group_invites` 可回滚 Migration。
+- 已交付 OWNER/ADMIN/MEMBER 权限、邀请/申请审批、退群、移除、转让群主、解散、全员/成员禁言和成员 Cursor 分页。
+- 群生命周期变化使用与普通消息共享的 `conversationId + seq` SYSTEM 消息；P5 仅开放 `DIRECT/GROUP + TEXT/SYSTEM`，群广播不写逐成员消息 Fan-out 或永久 Receipt。
+- 已补充群聊 Contracts、权限/状态集成测试和群生命周期 E2E；P6 媒体、P7 高级消息与 P9 治理仍未提前实现。
+- 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm db:migration:run`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
+
 ### P6 — 第 10 周：多模态和媒体
 
 依赖：P1、P3  

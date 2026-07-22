@@ -14,6 +14,7 @@ import { OutboxWriterService } from "../../outbox/services/outbox-writer.service
 import { ConversationMemberEntity } from "../../conversations/persistence/entities/conversation-member.entity.js";
 import { ConversationUserStateEntity } from "../../conversations/persistence/entities/conversation-user-state.entity.js";
 import { ConversationEntity } from "../../conversations/persistence/entities/conversation.entity.js";
+import { GroupProfileEntity } from "../../groups/persistence/entities/group-profile.entity.js";
 import { toMessage } from "../message.mapper.js";
 import { MessageEntity } from "../persistence/entities/message.entity.js";
 
@@ -51,6 +52,7 @@ export class MessageCommandService {
           manager,
           auth.userId,
           conversationId,
+          input,
         );
         const result = await manager.query<[Array<{ last_seq: string | number }>, number]>(
           `UPDATE conversations
@@ -93,10 +95,21 @@ export class MessageCommandService {
               SET hidden_at = NULL,
                   last_delivered_seq = CASE WHEN user_id = $2 THEN GREATEST(last_delivered_seq, $3) ELSE last_delivered_seq END,
                   last_read_seq = CASE WHEN user_id = $2 THEN GREATEST(last_read_seq, $3) ELSE last_read_seq END,
-                  unread_count = CASE WHEN user_id <> $2 THEN unread_count + 1 ELSE unread_count END,
+          unread_count = CASE WHEN user_id <> $2 THEN unread_count + 1 ELSE unread_count END,
+                  mention_count = CASE
+                    WHEN user_id <> $2 AND (user_id = ANY($4::uuid[]) OR $5::boolean)
+                      THEN mention_count + 1
+                    ELSE mention_count
+                  END,
                   updated_at = now()
             WHERE conversation_id = $1`,
-          [conversationId, auth.userId, seq],
+          [
+            conversationId,
+            auth.userId,
+            seq,
+            input.payload.mentions ?? [],
+            input.payload.mentionAll === true,
+          ],
         );
         await this.outbox.append(manager, {
           eventId: uuidv7(),
@@ -129,6 +142,7 @@ export class MessageCommandService {
     manager: EntityManager,
     senderId: string,
     conversationId: string,
+    input: SendTextMessageRequest,
   ): Promise<{ conversation: ConversationEntity; memberIds: string[] }> {
     const conversation = await manager.getRepository(ConversationEntity).findOneBy({
       id: conversationId,
@@ -142,22 +156,40 @@ export class MessageCommandService {
     });
     const sender = members.find((member) => member.userId === senderId);
     if (!sender) throw new AppError("MESSAGE_FORBIDDEN", "Message cannot be sent", 403);
-    if (sender.muteUntil && sender.muteUntil.getTime() > Date.now()) {
+    if (sender.muteUntil && sender.muteUntil.getTime() > Date.now() && sender.role === "MEMBER") {
       throw new AppError("MESSAGE_FORBIDDEN", "Message cannot be sent while muted", 403);
     }
-    if (conversation.type !== "DIRECT" || members.length !== 2) {
+    if (conversation.type !== "DIRECT" && conversation.type !== "GROUP") {
       throw new AppError(
         "MESSAGE_TYPE_UNSUPPORTED",
-        "Only direct text messages are available",
+        "This conversation type does not support text messages",
         400,
       );
     }
-    const recipient = members.find((member) => member.userId !== senderId)!;
-    await this.contacts.assertDirectMessagingAllowed(manager, senderId, recipient.userId);
+    if (conversation.type === "DIRECT") {
+      if (members.length !== 2)
+        throw new AppError("CONVERSATION_CONFLICT", "Conversation membership is invalid", 409);
+      const recipient = members.find((member) => member.userId !== senderId)!;
+      if (input.payload.mentions?.length || input.payload.mentionAll)
+        throw new AppError("MESSAGE_PAYLOAD_INVALID", "Mentions are only supported in groups", 400);
+      await this.contacts.assertDirectMessagingAllowed(manager, senderId, recipient.userId);
+    } else {
+      const profile = await manager.getRepository(GroupProfileEntity).findOneBy({ conversationId });
+      if (!profile) throw new AppError("CONVERSATION_NOT_FOUND", "Group was not found", 404);
+      if (profile.allMembersMuted && sender.role === "MEMBER")
+        throw new AppError("MESSAGE_FORBIDDEN", "Group messages are muted", 403);
+      const activeIds = new Set(members.map((member) => member.userId));
+      if (input.payload.mentions?.some((userId) => !activeIds.has(userId)))
+        throw new AppError(
+          "MESSAGE_PAYLOAD_INVALID",
+          "Mention target is not an active member",
+          400,
+        );
+    }
     const stateCount = await manager.getRepository(ConversationUserStateEntity).countBy({
       conversationId,
     });
-    if (stateCount !== 2)
+    if (conversation.type === "DIRECT" && stateCount !== 2)
       throw new AppError("CONVERSATION_CONFLICT", "Conversation state is invalid", 409);
     return { conversation, memberIds: members.map((member) => member.userId) };
   }
@@ -185,7 +217,7 @@ export function messageContentHash(conversationId: string, input: SendTextMessag
         conversationId,
         type: input.type,
         contentVersion: input.contentVersion,
-        payload: { text: input.payload.text },
+        payload: input.payload,
       }),
     )
     .digest("hex");

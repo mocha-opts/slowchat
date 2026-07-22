@@ -17,13 +17,36 @@ export const messageTypeSchema = z.enum([
 export type MessageType = z.infer<typeof messageTypeSchema>;
 
 export const textPayloadSchema = z
-  .object({ text: z.string().min(1) })
+  .object({
+    text: z.string().min(1),
+    mentions: z.array(uuidSchema).max(100).optional(),
+    mentionAll: z.boolean().optional(),
+  })
   .strict()
   .refine((value) => utf8ByteLength(value.text) <= 8 * 1024, {
     message: "Text payload must not exceed 8 KiB",
     path: ["text"],
   });
 export type TextPayload = z.infer<typeof textPayloadSchema>;
+
+export const systemMessagePayloadSchema = z
+  .object({
+    kind: z.enum([
+      "MEMBER_JOINED",
+      "MEMBER_LEFT",
+      "MEMBER_REMOVED",
+      "GROUP_UPDATED",
+      "OWNER_TRANSFERRED",
+      "ADMIN_UPDATED",
+      "MUTE_UPDATED",
+      "GROUP_DISBANDED",
+    ]),
+    actorUserId: uuidSchema,
+    targetUserId: uuidSchema.nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).default({}),
+  })
+  .strict();
+export type SystemMessagePayload = z.infer<typeof systemMessagePayloadSchema>;
 
 export const sendTextMessageRequestSchema = z
   .object({
@@ -35,20 +58,28 @@ export const sendTextMessageRequestSchema = z
   .strict();
 export type SendTextMessageRequest = z.infer<typeof sendTextMessageRequestSchema>;
 
-export const messageSchema = z.object({
+const messageBaseSchema = z.object({
   id: uuidSchema,
   conversationId: uuidSchema,
   seq: z.number().int().nonnegative().safe(),
   senderId: uuidSchema,
   senderDeviceId: uuidSchema,
   clientMessageId: uuidSchema,
-  type: z.literal("TEXT"),
-  contentVersion: z.literal(1),
-  payload: textPayloadSchema,
   textPreview: z.string(),
   countsUnread: z.boolean(),
   createdAt: z.iso.datetime(),
 });
+export const textMessageSchema = messageBaseSchema.extend({
+  type: z.literal("TEXT"),
+  contentVersion: z.literal(1),
+  payload: textPayloadSchema,
+});
+export const systemMessageSchema = messageBaseSchema.extend({
+  type: z.literal("SYSTEM"),
+  contentVersion: z.literal(1),
+  payload: systemMessagePayloadSchema,
+});
+export const messageSchema = z.discriminatedUnion("type", [textMessageSchema, systemMessageSchema]);
 export type Message = z.infer<typeof messageSchema>;
 
 export const messageAcceptedSchema = z.object({

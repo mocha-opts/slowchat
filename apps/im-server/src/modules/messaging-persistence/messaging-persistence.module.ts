@@ -7,6 +7,9 @@ import { ConversationEntity } from "../conversations/persistence/entities/conver
 import { MessageEntity } from "../messages/persistence/entities/message.entity.js";
 import { ConsumerInboxEventEntity } from "../outbox/persistence/entities/consumer-inbox-event.entity.js";
 import { OutboxEventEntity } from "../outbox/persistence/entities/outbox-event.entity.js";
+import { GroupInviteEntity } from "../groups/persistence/entities/group-invite.entity.js";
+import { GroupJoinRequestEntity } from "../groups/persistence/entities/group-join-request.entity.js";
+import { GroupProfileEntity } from "../groups/persistence/entities/group-profile.entity.js";
 
 export const MESSAGING_ENTITIES = [
   ConversationEntity,
@@ -15,6 +18,9 @@ export const MESSAGING_ENTITIES = [
   MessageEntity,
   OutboxEventEntity,
   ConsumerInboxEventEntity,
+  GroupProfileEntity,
+  GroupJoinRequestEntity,
+  GroupInviteEntity,
 ];
 
 @Module({

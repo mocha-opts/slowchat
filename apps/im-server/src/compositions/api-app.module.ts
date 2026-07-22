@@ -18,6 +18,7 @@ import { RealtimePublisherModule } from "../platform/realtime/realtime-publisher
 import { StorageModule } from "../platform/storage/storage.module.js";
 import { SyncHttpModule } from "../modules/sync/sync-http.module.js";
 import { SyncPersistenceModule } from "../modules/sync/persistence/sync-persistence.module.js";
+import { GroupsModule } from "../modules/groups/groups.module.js";
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { SyncPersistenceModule } from "../modules/sync/persistence/sync-persiste
     MessagesHttpModule,
     SyncPersistenceModule,
     SyncHttpModule,
+    GroupsModule,
   ],
 })
 export class ApiAppModule {}
