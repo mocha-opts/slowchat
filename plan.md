@@ -1,6 +1,6 @@
 # 中型 IM 平台 14 周实施计划
 
-> 状态：执行中（P1、P2 已完成）  
+> 状态：执行中（P1、P2、P3 已完成）  
 > 版本：v2.0  
 > 需求规格：[spec.md](./spec.md)  
 > 架构决策：[adr/](./adr/)  
@@ -94,7 +94,7 @@
 - 已增加 Contract 与 E2E 测试入口；注册、登录、好友接受、Refresh 严格重放及账号枚举防护通过真实 PostgreSQL、Redis、MinIO 容器验证。
 - 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
 
-### P3 — 第 4～5 周：单聊与消息核心
+### P3 — 第 4～5 周：单聊与消息核心（已完成，2026-07-22）
 
 依赖：P1、P2  
 需求：`FR-CONV-001`～`FR-CONV-004`、`FR-MSG-001`～`FR-MSG-006`、`FR-RECEIPT-001`、`INV-CONV-001`、`INV-MSG-001`～`INV-MSG-004`、`INV-REL-001`～`INV-REL-003`、`AC-MSG-001`、`AC-MSG-002`、`AC-EVT-001`
@@ -113,6 +113,15 @@
 测试：事务和唯一约束集成测试；重复发送、并发 Seq、发布/ACK 崩溃边界故障测试；两用户收发 E2E。
 
 退出门槛：重复请求不重复写入；Seq 严格递增；MQ 停止时消息仍提交并保持 Outbox Pending；恢复后追平；重复消费无重复副作用。
+
+完成记录：
+
+- 已交付活动单聊唯一约束、联系人/陌生人隐私准入、双向 Block 校验、成员与禁言校验，以及会话视图、设置和隐藏后新消息恢复。
+- 已交付 HTTP/WS 共用的文本消息事务链路、`conversation_id + seq` 原子顺序、Client Message ID 内容指纹幂等、Seq 历史查询和 Delivered/Read 单调游标。
+- 已交付 Transactional Outbox Relay、Persistent Mandatory Confirm Publish、RabbitMQ Quorum Queue、三级有限 Retry、DLQ、Consumer Inbox 租约和 Redis Realtime Dispatch。
+- 已验证并发 Seq、数据库唯一约束、Migration 正反执行、跨进程实时收发、回执、重复发送、Block、隐藏恢复，以及 RabbitMQ 停止时提交、恢复后自动追平。
+- 阶段边界：P3 只开放 `DIRECT + TEXT`；Group/System、Image/File、持久多端 Sync 和高级消息分别由 P5/P9、P6、P4、P7 交付。
+- 阶段验证命令：`pnpm install --frozen-lockfile`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、`pnpm test:contract`、`pnpm test:e2e`、`pnpm build`、`pnpm db:migration:run`、`pnpm db:migration:revert`、`pnpm smoke`、`docker compose -f deploy/docker/compose.yml config`。
 
 ### P4 — 第 6～7 周：离线、多端同步与 SDK Core
 

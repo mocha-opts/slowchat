@@ -20,7 +20,7 @@ pnpm dev
 `pnpm dev` 会启动 PostgreSQL、两个 Redis、RabbitMQ、MinIO，初始化开发 Bucket，
 幂等生成被忽略的 `.local/auth` RSA 开发密钥，然后并行启动 API、Realtime、Event Worker 和 Job Worker。
 
-首次使用 P2 业务接口前执行：
+首次使用业务接口前执行：
 
 ```bash
 pnpm db:migration:run
@@ -37,4 +37,6 @@ pnpm db:migration:run
 
 常用命令见 [AGENTS.md](./AGENTS.md)。
 
-P2 的 REST API 位于 `/api/v1`，包含认证、Session/Device、当前用户、隐私、联系人、拉黑和举报。公开 Schema 与稳定错误码由 `@im/contracts/api`、`@im/contracts/websocket` 和 `@im/contracts/errors` 提供。
+REST API 位于 `/api/v1`。P2 提供认证、Session/Device、用户、隐私和联系人；P3 提供单聊、文本消息、Seq 历史、Delivered/Read 和会话视图。Realtime 进程接受 `message.send`、`message.delivered`、`conversation.read`，Event Worker 通过 Outbox 和 RabbitMQ 发布 `conversation.created`、`conversation.updated`、`message.created`、`receipt.updated`。
+
+P3 的 Outbox/RabbitMQ 参数位于 `.env.example` 的 `OUTBOX_*` 和 `RABBITMQ_*`。公开 Schema、领域事件和稳定错误码分别由 `@im/contracts/api`、`@im/contracts/websocket`、`@im/contracts/messages`、`@im/contracts/events` 与 `@im/contracts/errors` 提供。

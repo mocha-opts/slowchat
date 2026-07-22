@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 
 import { ErrorHandlingModule } from "../common/errors/error-handling.module.js";
 import { IdentityPersistenceModule } from "../modules/identity-persistence.module.js";
+import { MessagingPersistenceModule } from "../modules/messaging-persistence/messaging-persistence.module.js";
 import { PlatformConfigModule } from "../platform/config/platform-config.module.js";
 import { DatabaseModule } from "../platform/database/database.module.js";
 import { HealthModule } from "../platform/health/health.module.js";
@@ -18,6 +19,7 @@ import { RealtimeModule } from "../realtime/realtime.module.js";
     ErrorHandlingModule,
     DatabaseModule,
     IdentityPersistenceModule,
+    MessagingPersistenceModule,
     RedisModule.forRealtime(),
     RealtimeModule,
     HealthModule,

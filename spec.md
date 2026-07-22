@@ -301,6 +301,31 @@ export interface WsAck<T = unknown> {
 
 所有改变业务状态的命令必须返回 ACK。
 
+P3 已发布的单聊与文本消息协议固定为：
+
+```ts
+interface SendTextMessageRequest {
+  clientMessageId: string;
+  type: "TEXT";
+  contentVersion: 1;
+  payload: { text: string }; // UTF-8 非空且不超过 8 KiB
+}
+
+interface MessageAccepted {
+  status: "ACCEPTED";
+  messageId: string;
+  conversationId: string;
+  seq: number;
+  duplicate: boolean;
+  serverTimestamp: number;
+}
+```
+
+- `POST /conversations/direct` 接受目标 `userId`；联系人可以创建，陌生人仅在接收方允许陌生人消息时可以创建，任一方向 Block 都拒绝。
+- 消息历史的 `beforeSeq` 为排他上界，默认 20、最大 50；响应按 Seq 正序返回并携带 `nextBeforeSeq` 和 `hasMore`。
+- P3 的 WS 写命令为 `message.send`、`message.delivered`、`conversation.read`；Envelope 的 `event` 和 Socket.IO 事件名必须一致，`deviceId` 必须匹配认证 Session。
+- P3 只开放 `DIRECT + TEXT`。Group/System、Image/File、持久 Sync 与高级消息仍按 [plan.md](./plan.md) 的后续阶段交付。
+
 ### 4.3 Sync API
 
 `POST /api/v1/sync` 接受 `deviceId`、`userSyncCursor`、各会话 `lastSeq` 和不超过服务端上限的 `limit`，返回下一用户游标、`hasMore`、同步事件、缺失消息范围与服务器时间。客户端必须先顺序落地事件，再原子更新本地游标。

@@ -6,20 +6,29 @@ import { v7 as uuidv7 } from "uuid";
 import type { ManagedRedis } from "../redis/managed-redis.js";
 import { REDIS_REALTIME } from "../redis/redis.tokens.js";
 import { RealtimeRoomFactory } from "./realtime-room.factory.js";
+import { SOCKET_IO_REDIS_KEY } from "./socket-io-redis-key.js";
 
 @Injectable()
 export class RealtimeEventPublisherService {
   private readonly emitter: Emitter;
 
   constructor(
-    @Inject(REDIS_REALTIME) redis: ManagedRedis,
+    @Inject(REDIS_REALTIME) private readonly redis: ManagedRedis,
     private readonly rooms: RealtimeRoomFactory,
   ) {
-    this.emitter = new Emitter(redis.client);
+    this.emitter = new Emitter(this.redis.client, { key: SOCKET_IO_REDIS_KEY });
   }
 
   async emitToUser(event: string, userId: string, data: unknown): Promise<void> {
     this.emitter.to(this.rooms.user(userId)).emit(event, this.envelope(event, data));
+    await Promise.resolve();
+  }
+
+  async emitEnvelopeToUsers(event: WsServerEvent, userIds: readonly string[]): Promise<void> {
+    if (!(await this.redis.ping())) throw new Error("Realtime Redis is unavailable");
+    for (const userId of new Set(userIds)) {
+      this.emitter.to(this.rooms.user(userId)).emit(event.event, event);
+    }
     await Promise.resolve();
   }
 

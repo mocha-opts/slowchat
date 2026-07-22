@@ -16,6 +16,17 @@ export interface AppConfig {
     readonly jobsPrefix: string;
   };
   readonly rabbitMqUrl: string;
+  readonly messaging: {
+    readonly outboxPollIntervalMs: number;
+    readonly outboxBatchSize: number;
+    readonly outboxLockMs: number;
+    readonly outboxMaxAttempts: number;
+    readonly outboxRetryBaseMs: number;
+    readonly outboxRetryMaxMs: number;
+    readonly rabbitMqPrefetch: number;
+    readonly rabbitMqRetryDelaysMs: readonly number[];
+    readonly consumerLeaseMs: number;
+  };
   readonly auth: {
     readonly jwtIssuer: string;
     readonly jwtAudience: string;

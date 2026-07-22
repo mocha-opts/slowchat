@@ -33,6 +33,7 @@ describe("loadAppConfig", () => {
     expect(config.ports.api).toBe(3000);
     expect(config.s3.forcePathStyle).toBe(true);
     expect(config.s3.autoCreateBucket).toBe(false);
+    expect(config.messaging.rabbitMqRetryDelaysMs).toEqual([5_000, 30_000, 300_000]);
   });
 
   it("fails fast when a required connection is missing", () => {
@@ -52,5 +53,17 @@ describe("loadAppConfig", () => {
         }),
       ),
     ).toThrow("known weak credential");
+  });
+
+  it("rejects invalid messaging retry configuration", () => {
+    expect(() =>
+      loadAppConfig("event-worker", validEnvironment({ RABBITMQ_RETRY_DELAYS_MS: "0,nope" })),
+    ).toThrow("RABBITMQ_RETRY_DELAYS_MS");
+    expect(() =>
+      loadAppConfig(
+        "event-worker",
+        validEnvironment({ OUTBOX_RETRY_BASE_MS: "2000", OUTBOX_RETRY_MAX_MS: "1000" }),
+      ),
+    ).toThrow("OUTBOX_RETRY_BASE_MS");
   });
 });

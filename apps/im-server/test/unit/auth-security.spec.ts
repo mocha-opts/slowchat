@@ -91,6 +91,17 @@ function config(privatePath: string, publicPath: string): AppConfig {
       jobsPrefix: "im:jobs:",
     },
     rabbitMqUrl: "amqp://unused",
+    messaging: {
+      outboxPollIntervalMs: 250,
+      outboxBatchSize: 100,
+      outboxLockMs: 30_000,
+      outboxMaxAttempts: 20,
+      outboxRetryBaseMs: 500,
+      outboxRetryMaxMs: 60_000,
+      rabbitMqPrefetch: 50,
+      rabbitMqRetryDelaysMs: [5_000, 30_000, 300_000],
+      consumerLeaseMs: 30_000,
+    },
     auth: {
       jwtIssuer: "slowchat-test",
       jwtAudience: "slowchat-test-clients",

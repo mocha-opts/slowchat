@@ -4,6 +4,7 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import type { Server, ServerOptions } from "socket.io";
 
 import type { ManagedRedis } from "../platform/redis/managed-redis.js";
+import { SOCKET_IO_REDIS_KEY } from "../platform/realtime/socket-io-redis-key.js";
 
 export class RedisIoAdapter extends IoAdapter {
   private readonly publisher;
@@ -22,9 +23,7 @@ export class RedisIoAdapter extends IoAdapter {
 
   override createIOServer(port: number, options?: ServerOptions): unknown {
     const server = super.createIOServer(port, options) as Server;
-    server.adapter(
-      createAdapter(this.publisher, this.subscriber, { key: "im:realtime:socket.io" }),
-    );
+    server.adapter(createAdapter(this.publisher, this.subscriber, { key: SOCKET_IO_REDIS_KEY }));
     return server;
   }
 

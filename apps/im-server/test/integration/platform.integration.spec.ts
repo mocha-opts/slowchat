@@ -292,6 +292,7 @@ function createConfig(overrides: { rabbitMqUrl?: string; s3Endpoint?: string } =
       jobsPrefix: "im:jobs:",
     },
     rabbitMqUrl: overrides.rabbitMqUrl ?? "amqp://unused",
+    messaging: messagingConfig(),
     auth: {
       jwtIssuer: "slowchat-test",
       jwtAudience: "slowchat-test-clients",
@@ -318,6 +319,20 @@ function createConfig(overrides: { rabbitMqUrl?: string; s3Endpoint?: string } =
       forcePathStyle: true,
       autoCreateBucket: false,
     },
+  };
+}
+
+function messagingConfig(): AppConfig["messaging"] {
+  return {
+    outboxPollIntervalMs: 250,
+    outboxBatchSize: 100,
+    outboxLockMs: 30_000,
+    outboxMaxAttempts: 20,
+    outboxRetryBaseMs: 500,
+    outboxRetryMaxMs: 60_000,
+    rabbitMqPrefetch: 50,
+    rabbitMqRetryDelaysMs: [5_000, 30_000, 300_000],
+    consumerLeaseMs: 30_000,
   };
 }
 

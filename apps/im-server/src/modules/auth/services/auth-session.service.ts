@@ -22,7 +22,11 @@ export class AuthSessionService {
   ) {}
 
   async validate(context: AuthContext): Promise<void> {
-    const row = await this.dataSource
+    await this.validateWithManager(this.dataSource.manager, context);
+  }
+
+  async validateWithManager(manager: EntityManager, context: AuthContext): Promise<void> {
+    const row = await manager
       .createQueryBuilder()
       .select([
         "s.status AS session_status",

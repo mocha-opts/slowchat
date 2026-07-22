@@ -2,9 +2,12 @@ import { Module } from "@nestjs/common";
 
 import { ErrorHandlingModule } from "../common/errors/error-handling.module.js";
 import { ContactsModule } from "../modules/contacts/contacts.module.js";
+import { ConversationsHttpModule } from "../modules/conversations/conversations-http.module.js";
 import { DevicesModule } from "../modules/devices/devices.module.js";
 import { UsersModule } from "../modules/users/users.module.js";
 import { IdentityPersistenceModule } from "../modules/identity-persistence.module.js";
+import { MessagesHttpModule } from "../modules/messages/messages-http.module.js";
+import { MessagingPersistenceModule } from "../modules/messaging-persistence/messaging-persistence.module.js";
 import { PlatformConfigModule } from "../platform/config/platform-config.module.js";
 import { DatabaseModule } from "../platform/database/database.module.js";
 import { HealthModule } from "../platform/health/health.module.js";
@@ -22,6 +25,7 @@ import { StorageModule } from "../platform/storage/storage.module.js";
     ErrorHandlingModule,
     DatabaseModule,
     IdentityPersistenceModule,
+    MessagingPersistenceModule,
     RedisModule.forRealtime(),
     RealtimePublisherModule,
     StorageModule,
@@ -29,6 +33,8 @@ import { StorageModule } from "../platform/storage/storage.module.js";
     UsersModule,
     DevicesModule,
     ContactsModule,
+    ConversationsHttpModule,
+    MessagesHttpModule,
   ],
 })
 export class ApiAppModule {}

@@ -24,6 +24,15 @@ const environmentSchema = z.object({
   REDIS_JOBS_URL: urlWithProtocols("redis:", "rediss:"),
   REDIS_JOBS_PREFIX: z.string().min(1).default("im:jobs:"),
   RABBITMQ_URL: urlWithProtocols("amqp:", "amqps:"),
+  OUTBOX_POLL_INTERVAL_MS: z.coerce.number().int().min(25).max(60_000).default(250),
+  OUTBOX_BATCH_SIZE: z.coerce.number().int().min(1).max(1_000).default(100),
+  OUTBOX_LOCK_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
+  OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(100).default(20),
+  OUTBOX_RETRY_BASE_MS: z.coerce.number().int().min(10).max(60_000).default(500),
+  OUTBOX_RETRY_MAX_MS: z.coerce.number().int().min(100).max(3_600_000).default(60_000),
+  RABBITMQ_PREFETCH: z.coerce.number().int().min(1).max(1_000).default(50),
+  RABBITMQ_RETRY_DELAYS_MS: z.string().default("5000,30000,300000"),
+  RABBITMQ_CONSUMER_LEASE_MS: z.coerce.number().int().min(1_000).max(300_000).default(30_000),
   JWT_ISSUER: z.string().min(1).default("slowchat"),
   JWT_AUDIENCE: z.string().min(1).default("slowchat-clients"),
   JWT_KEY_ID: z.string().min(1).default("default-rs256"),
@@ -57,6 +66,18 @@ export function loadAppConfig(
   environment: NodeJS.ProcessEnv = process.env,
 ): AppConfig {
   const parsed = environmentSchema.parse(environment);
+  const retryDelays = parsed.RABBITMQ_RETRY_DELAYS_MS.split(",").map((value) => Number(value));
+  if (
+    retryDelays.length === 0 ||
+    retryDelays.some((value) => !Number.isSafeInteger(value) || value < 100 || value > 3_600_000)
+  ) {
+    throw new Error(
+      "RABBITMQ_RETRY_DELAYS_MS must contain comma-separated delays from 100 to 3600000",
+    );
+  }
+  if (parsed.OUTBOX_RETRY_BASE_MS > parsed.OUTBOX_RETRY_MAX_MS) {
+    throw new Error("OUTBOX_RETRY_BASE_MS cannot exceed OUTBOX_RETRY_MAX_MS");
+  }
 
   if (parsed.NODE_ENV === "production") {
     const secrets = [
@@ -113,6 +134,17 @@ export function loadAppConfig(
       jobsPrefix: parsed.REDIS_JOBS_PREFIX,
     },
     rabbitMqUrl: parsed.RABBITMQ_URL,
+    messaging: {
+      outboxPollIntervalMs: parsed.OUTBOX_POLL_INTERVAL_MS,
+      outboxBatchSize: parsed.OUTBOX_BATCH_SIZE,
+      outboxLockMs: parsed.OUTBOX_LOCK_MS,
+      outboxMaxAttempts: parsed.OUTBOX_MAX_ATTEMPTS,
+      outboxRetryBaseMs: parsed.OUTBOX_RETRY_BASE_MS,
+      outboxRetryMaxMs: parsed.OUTBOX_RETRY_MAX_MS,
+      rabbitMqPrefetch: parsed.RABBITMQ_PREFETCH,
+      rabbitMqRetryDelaysMs: retryDelays,
+      consumerLeaseMs: parsed.RABBITMQ_CONSUMER_LEASE_MS,
+    },
     auth: {
       jwtIssuer: parsed.JWT_ISSUER,
       jwtAudience: parsed.JWT_AUDIENCE,

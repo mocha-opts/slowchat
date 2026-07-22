@@ -1,6 +1,9 @@
 import { Module } from "@nestjs/common";
 
 import { ErrorHandlingModule } from "../common/errors/error-handling.module.js";
+import { MessagingPersistenceModule } from "../modules/messaging-persistence/messaging-persistence.module.js";
+import { OutboxRelayModule } from "../modules/outbox/outbox-relay.module.js";
+import { RealtimeDispatchModule } from "../modules/outbox/realtime-dispatch.module.js";
 import { PlatformConfigModule } from "../platform/config/platform-config.module.js";
 import { DatabaseModule } from "../platform/database/database.module.js";
 import { HealthModule } from "../platform/health/health.module.js";
@@ -16,8 +19,11 @@ import { RequestContextModule } from "../platform/request-context/request-contex
     RequestContextModule,
     ErrorHandlingModule,
     DatabaseModule,
+    MessagingPersistenceModule,
     RedisModule.forRealtime(),
     RabbitMqModule,
+    OutboxRelayModule,
+    RealtimeDispatchModule,
     HealthModule,
   ],
 })

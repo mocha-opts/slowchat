@@ -110,6 +110,8 @@ RETURNING *;
 
 事务提交后，Relay 使用 Persistent Message、`mandatory=true` 和 Publisher Confirm 发布。确认成功后标记 `PUBLISHED`；失败则增加 attempts、记录错误并按有限退避重新可用。发布成功但标记前崩溃会导致重发，这是设计允许的行为。
 
+P3 实现参数为：250 ms 轮询、批量 100、30 秒 Claim 租约、最多 20 次发布尝试；失败使用带抖动的指数退避，500 ms 起步并封顶 60 秒。RabbitMQ 未连接时 Relay 不领取事件，因此 Broker 停机不会消耗发布尝试。
+
 ### 3.3 RabbitMQ 拓扑
 
 Durable Exchange：
@@ -135,6 +137,8 @@ im.analytics.q
 
 关键 Queue 使用 Quorum Queue、合理 Prefetch、Manual ACK、Retry Queue 和 DLX/DLQ。
 
+P3 为 Realtime Dispatch 建立 `im.realtime-dispatch.q`、5 秒/30 秒/300 秒三个 Quorum Retry Queue 和 `im.realtime-dispatch.dlq`，默认 Prefetch 为 50。临时失败在 Confirm 后进入下一级 Retry，永久错误或重试耗尽进入 DLQ；Retry/DLQ Publish 失败时关闭连接，由 RabbitMQ 重新投递未 ACK 原消息。
+
 ### 3.4 Consumer Inbox
 
 每个会产生副作用的 Consumer：
@@ -148,6 +152,8 @@ im.analytics.q
 7. 禁止无限 `nack(requeue=true)`。
 
 不同副作用使用不同 Consumer Identity，实时分发成功不能代表同步投影、推送或 Bot 投递已经成功。
+
+Realtime Emit 是 PostgreSQL 事务外部副作用，无法与 Inbox 原子提交。P3 对 `realtime-dispatch.v1` 使用带租约的 `PROCESSING/PROCESSED` Inbox：崩溃后可重新领取；Emit 后、标记前崩溃允许重复传输，但事件复用相同 `eventId`。这不产生重复数据库事实，客户端去重与离线恢复由 P4 完成。
 
 ## 4. 用户同步与离线恢复
 
